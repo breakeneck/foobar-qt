@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import QAbstractItemView
 import design  # Это наш конвертированный файл дизайна
 import config
 import library
+import player
 
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
@@ -22,6 +23,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # и т.д. в файле design.py
         super().__init__()
         self.setupUi(self)  # Это нужно для инициализации нашего дизайна
+        # self.player = player
 
         # design updates
         self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
@@ -63,11 +65,21 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.playBtn.clicked.connect(self.playBtnClick)
         self.searchEdit.textChanged.connect(self.searchChanged)
         self.treeView.clicked.connect(self.clickTreeView)
-        # self.tableView.columnc()
-
+        self.tableView.doubleClicked.connect(self.play)
         # self.tableView.currentChanged.connect(self.tableViewChanged)
 
         self.config.load()
+
+    def play(self, selInx: QModelIndex):
+        track = library.Track()
+        track.setAttrs([self.gridModel.data(self.gridModel.index(selInx.row(), col)) for col in range(0, self.gridModel.columnCount())])
+        print(track.__dict__)
+        player.play(track)
+
+
+        # index = self.gridModel.index(selInx.row(), library.Track().indexOf('full_path'))
+        # print(self.gridModel.data(index))
+
 
     def tableViewChanged(self, current, previous):
         print(current)

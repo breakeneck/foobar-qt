@@ -52,6 +52,17 @@ class Folder(database.Model):
 
 
 class Track(database.Model):
+    # id = 0
+    # artist = ''
+    # title = ''
+    # album = ''
+    # year = 0
+    # track_num = 0
+    # basename = ''
+    # full_path = ''
+    # dir_name = ''
+    # base_dir_name = ''
+    # duration = 0
     def __init__(self):
         self.id = 0
         self.artist = ''
@@ -64,6 +75,11 @@ class Track(database.Model):
         self.dir_name = ''
         self.base_dir_name = ''
         self.duration = 0
+
+    def setAttrs(self, attrs):
+        for index, attr in enumerate(self.__dict__):
+            # print(index, attr, attrs[index])
+            setattr(self, attr, attrs[index])
 
     @property
     def indexed_attributes(self):

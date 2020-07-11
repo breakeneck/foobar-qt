@@ -38,6 +38,9 @@ class Model:
     def pk(self):
         return 'id'
 
+    def indexOf(self, attr):
+        return list(self.__dict__.keys()).index(attr)
+
     @property
     def indexed_attributes(self):
         return []
