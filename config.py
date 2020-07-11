@@ -38,7 +38,7 @@ class Config:
         self.config['window'] = self.w.geometry().getRect()
         self.config['splitter'] = self.w.splitter.sizes()
         self.config['theme'] = self.w.themeCombo.currentText()
-        self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.gridModel.columnCount())]
+        self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.tableModel.columnCount())]
         json.dump(self.config, open('config.json', 'w'))
 
     def setLibraryDir(self, directory):
