@@ -27,8 +27,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.nextRndBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogHelpButton))
         self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
-
-
         self.timer = QtCore.QTimer(self)
         self.timer.setInterval(100)
 
@@ -36,6 +34,25 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config = config.Config(self, app)
         library.init(self.config.getLibraryDir())
 
+        self.loadTracksToUi()
+
+        self.config.load()
+
+        self.connectEvents()
+
+    def connectEvents(self):
+        self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
+        self.browseDirBtn.clicked.connect(self.browseDirClick)
+        self.playBtn.clicked.connect(self.playBtnClick)
+        self.searchEdit.textChanged.connect(self.searchChanged)
+        self.treeView.clicked.connect(self.clickTreeView)
+        self.tableView.doubleClicked.connect(self.play)
+        # self.posSlider.setMaximum(1000)
+        self.posSlider.sliderMoved.connect(self.setPos)
+        self.posSlider.sliderPressed.connect(self.setPos)
+        self.timer.timeout.connect(self.updatePos)
+
+    def loadTracksToUi(self):
         # db and models init
         db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
         db.setDatabaseName('db.sqlite3')
@@ -57,20 +74,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # self.treeView.hideColumn(2)
         # self.treeView.setRootIndex(self.treeModel.index(library.root_dir))
         # self.buildTree(library.)
-
-        self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
-        self.browseDirBtn.clicked.connect(self.browseDirClick)
-        self.playBtn.clicked.connect(self.playBtnClick)
-        self.searchEdit.textChanged.connect(self.searchChanged)
-        self.treeView.clicked.connect(self.clickTreeView)
-        self.tableView.doubleClicked.connect(self.play)
-        self.posSlider.setMaximum(1000)
-        self.posSlider.sliderMoved.connect(self.setPos)
-        self.posSlider.sliderPressed.connect(self.setPos)
-        self.timer.timeout.connect(self.updatePos)
         # self.tableView.currentChanged.connect(self.tableViewChanged)
-
-        self.config.load()
 
     def getTrack(self, index: QtCore.QModelIndex):
         track = library.Track()
@@ -104,28 +108,15 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def playBtnClick(self):
         print([self.tableView.columnWidth(i) for i in range(0, self.tableModel.columnCount())])
-            # print(self.tableView.columnWidth(i))
-
-        # print(self.geometry())
-        # self.setGeometry(QRect(*self.config['window']))
 
 
     def setPos(self):
-        """Set the movie position according to the position slider."""
-        # The vlc MediaPlayer needs a float value between 0 and 1, Qt uses
-        # integer variables, so you need a factor; the higher the factor, the
-        # more precise are the results (1000 should suffice).
-
-        # Set the media position to where the slider was dragged
         self.timer.stop()
         pos = self.posSlider.value()
         player.mediaplayer.set_position(pos / 1000.0)
         self.timer.start()
 
     def updatePos(self):
-        # Set the slider's position to its corresponding media position
-        # Note that the setValue function only takes values of type int,
-        # so we must first convert the corresponding media position.
         media_pos = int(player.mediaplayer.get_position() * 1000)
         self.posSlider.setValue(media_pos)
 
@@ -134,8 +125,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.timer.stop()
 
             # After the video finished, the play button stills shows "Pause",
-            # which is not the desired behavior of a media player.
-            # This fixes that "bug".
             if not player.paused:
                 player.stop()
 
