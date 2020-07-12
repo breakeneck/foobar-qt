@@ -1,18 +1,19 @@
 import os
-import config
 import eyed3
 import database
+from PyQt5 import QtGui, QtCore
 
 TB_FOLDER = 'folder'
 TB_TRACK = 'track'
 
 tracks = []
 root_dir = ''
+selected_dir = ''
 
 
-def init(directory):
-    global root_dir
-    root_dir = directory
+def init(dirs):
+    global root_dir, selected_dir
+    root_dir, selected_dir = dirs
     # init database
     is_db_exists = database.connect()
     if not is_db_exists:
@@ -52,17 +53,6 @@ class Folder(database.Model):
 
 
 class Track(database.Model):
-    # id = 0
-    # artist = ''
-    # title = ''
-    # album = ''
-    # year = 0
-    # track_num = 0
-    # basename = ''
-    # full_path = ''
-    # dir_name = ''
-    # base_dir_name = ''
-    # duration = 0
     def __init__(self):
         self.id = 0
         self.artist = ''
@@ -75,11 +65,6 @@ class Track(database.Model):
         self.dir_name = ''
         self.base_dir_name = ''
         self.duration = 0
-
-    def setAttrs(self, attrs):
-        for index, attr in enumerate(self.__dict__):
-            # print(index, attr, attrs[index])
-            setattr(self, attr, attrs[index])
 
     @property
     def indexed_attributes(self):
@@ -189,3 +174,32 @@ class Scanner:
             track.title = track.basename
 
         track.insert()
+
+
+class TreeModel(QtGui.QStandardItemModel):
+    def __init__(self, parent=None):
+        super(TreeModel, self).__init__(parent)
+
+    def loadTreeData(self):
+        self.clear()
+
+        for folder in Folder().get_all():
+            parent = self.invisibleRootItem()
+            for word in folder.path[len(root_dir):].split("/")[1:]:
+                for i in range(parent.rowCount()):
+                    item = parent.child(i)
+                    if item.text() == word:
+                        it = item
+                        break
+                else:
+                    it = QtGui.QStandardItem(word)
+                    parent.setChild(parent.rowCount(), it)
+                parent = it
+
+    @staticmethod
+    def getDirPath(index: QtCore.QModelIndex):
+        folder = []
+        while index.isValid():
+            folder.append(index.data())
+            index = index.parent()
+        return root_dir + '/' + '/'.join(folder[::-1])

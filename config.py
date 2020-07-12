@@ -2,10 +2,11 @@ import os
 import json
 import main
 from PyQt5.QtCore import QRect
+from PyQt5.QtWidgets import QApplication
 
 
 class Config:
-    def __init__(self, widget: main.FooQt, app, filename='config.json'):
+    def __init__(self, widget: main.FooQt, filename='config.json'):
         self.w = widget
         self.filename = filename
 
@@ -21,33 +22,28 @@ class Config:
                 'column_sizes': [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
             }
 
-        app.setStyle(self.config['theme'])
-
-    def load(self):
+    def load(self, app: QApplication):
         print(self.config)
+        app.setStyle(self.config['theme'])
         self.w.themeCombo.setCurrentIndex(self.w.themeCombo.findText(self.config['theme']))
         self.w.setGeometry(QRect(*self.config['window']))
         self.w.splitter.setSizes(self.config['splitter'])
-        [self.w.tableView.setColumnWidth(i, width) for i, width in enumerate(self.config['column_sizes'])]
-        # print(self.config['column_sizes'])
-
-    # def loadOnUiReady(self):
-    #     [self.w.tableView.setColumnWidth(i, width) for i, width in enumerate(self.config['column_sizes'])]
+        # [self.w.tableView.setColumnWidth(i, width) for i, width in enumerate(self.config['column_sizes'])]
 
     def save(self):
         self.config['window'] = self.w.geometry().getRect()
         self.config['splitter'] = self.w.splitter.sizes()
         self.config['theme'] = self.w.themeCombo.currentText()
-        self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.tableModel.columnCount())]
+        # self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.tableModel.columnCount())]
         json.dump(self.config, open('config.json', 'w'))
 
-    def setLibraryDir(self, directory):
+    def updateLibraryDir(self, directory):
         self.config['library_dir'] = directory
         self.save()
 
-    def setSelectedDir(self, directory):
+    def updateSelectedDir(self, directory):
         self.config['selected_dir'] = directory
         self.save()
 
-    def getLibraryDir(self):
-        return self.config['library_dir']
+    def getLibraryDirs(self):
+        return self.config['library_dir'], self.config['selected_dir']

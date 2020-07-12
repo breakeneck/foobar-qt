@@ -41,6 +41,10 @@ class Model:
     def indexOf(self, attr):
         return list(self.__dict__.keys()).index(attr)
 
+    def setAttrs(self, attrs):
+        for index, attr in enumerate(self.__dict__):
+            setattr(self, attr, attrs[index])
+
     @property
     def indexed_attributes(self):
         return []
