@@ -185,7 +185,7 @@ class TreeModel(QtGui.QStandardItemModel):
 
         for folder in Folder().get_all():
             parent = self.invisibleRootItem()
-            for word in folder.path[len(root_dir):].split("/")[1:]:
+            for word in folder.path[len(os.path.dirname(root_dir)):].split("/")[1:]:
                 for i in range(parent.rowCount()):
                     item = parent.child(i)
                     if item.text() == word:
@@ -202,4 +202,29 @@ class TreeModel(QtGui.QStandardItemModel):
         while index.isValid():
             folder.append(index.data())
             index = index.parent()
-        return root_dir + '/' + '/'.join(folder[::-1])
+        return os.path.dirname(root_dir) + '/' + '/'.join(folder[::-1])
+
+
+class TableModel(QtCore.QAbstractTableModel):
+    def __init__(self):
+        super(TableModel, self).__init__()
+        self.headers = ["Scientist name", "Birthdate", "Contribution"]
+        self.rows = [("Newton", "1643-01-04", "Classical mechanics"),
+                ("Einstein", "1879-03-14", "Relativity"),
+                ("Darwin", "1809-02-12", "Evolution")]
+
+    def rowCount(self, parent=None):
+        return len(self.rows)
+
+    def columnCount(self, parent=None):
+        return len(self.headers)
+
+    def data(self, index, role=None):
+        if role != QtCore.Qt.DisplayRole:
+            return QtCore.QVariant()
+        return self.rows[index.row()][index.column()]
+
+    def headerData(self, section, orientation, role=None):
+        if role != QtCore.Qt.DisplayRole or orientation != QtCore.Qt.Horizontal:
+            return QtCore.QVariant()
+        return self.headers[section]

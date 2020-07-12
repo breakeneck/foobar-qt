@@ -8,31 +8,6 @@ import library
 import player
 
 
-class TableModel(QtCore.QAbstractTableModel):
-    def __init__(self):
-        super(TableModel, self).__init__()
-        self.headers = ["Scientist name", "Birthdate", "Contribution"]
-        self.rows = [("Newton", "1643-01-04", "Classical mechanics"),
-                ("Einstein", "1879-03-14", "Relativity"),
-                ("Darwin", "1809-02-12", "Evolution")]
-
-    def rowCount(self, parent=None):
-        return len(self.rows)
-
-    def columnCount(self, parent=None):
-        return len(self.headers)
-
-    def data(self, index, role=None):
-        if role != QtCore.Qt.DisplayRole:
-            return QtCore.QVariant()
-        return self.rows[index.row()][index.column()]
-
-    def headerData(self, section, orientation, role=None):
-        if role != QtCore.Qt.DisplayRole or orientation != QtCore.Qt.Horizontal:
-            return QtCore.QVariant()
-        return self.headers[section]
-
-
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def __init__(self, app):
         super().__init__()
@@ -76,12 +51,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def play(self, index: QtCore.QModelIndex):
         player.play(self.getTrack(index))
-        # index = self.gridModel.index(selInx.row(), library.Track().indexOf('full_path'))
 
 
     def browseDirClick(self):
-        # self.themeCombo.setCurrentIndex()
-        # print(self.themeCombo.findText('cde'))
         self.config.updateLibraryDir(QtWidgets.QFileDialog.getExistingDirectory(self))
 
 
@@ -144,7 +116,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
         db.setDatabaseName('db.sqlite3')
         db.open()
-
         self.tableModel = QtSql.QSqlTableModel(None, db)
         self.tableModel.setTable('track')
         self.tableModel.select()
