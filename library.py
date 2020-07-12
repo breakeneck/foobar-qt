@@ -1,3 +1,6 @@
+import faulthandler
+faulthandler.enable()
+
 import os
 import eyed3
 import database
@@ -6,19 +9,23 @@ from PyQt5 import QtGui, QtCore
 TB_FOLDER = 'folder'
 TB_TRACK = 'track'
 
-tracks = []
+# tracks = []
 root_dir = ''
 selected_dir = ''
 
 
 def init(dirs):
-    global root_dir, selected_dir
-    root_dir, selected_dir = dirs
+    updateDirs(dirs)
     # init database
     is_db_exists = database.connect()
     if not is_db_exists:
         Track().create_table()
         Folder().create_table()
+
+
+def updateDirs(dirs):
+    global root_dir, selected_dir
+    root_dir, selected_dir = dirs
 
 
 def rescan():
@@ -40,15 +47,15 @@ class Folder(database.Model):
         self.parent_dir = ''
 
     @property
-    def table_name(self):
+    def tableName(self):
         return TB_FOLDER
 
     @property
-    def indexed_attributes(self):
+    def indexedAttrs(self):
         return ['path']
 
-    def get_all(self):
-        database.db.execute(f'SELECT * FROM {self.table_name}')
+    def getAll(self):
+        database.db.execute(f'SELECT * FROM {self.tableName}')
         return map(lambda row: Folder().load(row), database.db.fetchall())
 
 
@@ -67,50 +74,48 @@ class Track(database.Model):
         self.duration = 0
 
     @property
-    def indexed_attributes(self):
+    def indexedAttrs(self):
         return ['artist', 'title', 'dir_name']
 
     @property
-    def table_name(self):
+    def tableName(self):
         return TB_TRACK
 
-    def to_list(self):
-        return [self.id, self.artist, self.title, self.album]
+    def toList(self):
+        return (self.id, self.artist, self.title, self.album, self.full_path)
 
     @staticmethod
     def headings():
-        return ['id', 'artist', 'title', 'album']
+        return ['id', 'artist', 'title', 'album', 'full_path']
 
-    @staticmethod
-    def col_width():
-        return [5, 30, 30, 30]
+    def getAllByPath(self, path, query):
+        condition = f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ''
+        # print(condition)
+        condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
+        print(condition)
 
-    def get_all_by_path(self, full_path):
-        database.db.execute(f'SELECT * FROM {self.table_name} WHERE dir_name LIKE "{full_path}%"')
+        database.db.execute(f'SELECT * FROM {self.tableName} WHERE {condition}')
         return map(lambda row: Track().load(row), database.db.fetchall())
 
     @staticmethod
-    def get_playlist(full_path=None):
-        global tracks
-        full_path = root_dir if full_path is None else full_path
+    def getPlaylist(query=''):
+        path = selected_dir if selected_dir else root_dir
 
         playlist = []
-        row_colors = []
-        tracks.clear()
+        tracks = []
 
         current_dir = ''
-        for track in Track().get_all_by_path(full_path):
+        for track in Track().getAllByPath(path, query):
             if track.base_dir_name != current_dir:
                 current_dir = track.base_dir_name
 
                 tracks.append(current_dir)
-                playlist.append(['', current_dir])
-                row_colors.append([len(tracks) - 1, '#000000', '#ffffff'])
+                # playlist.append([current_dir])
 
             tracks.append(track)
-            playlist.append(track.to_list())
+            playlist.append(track.toList())
 
-        return playlist, row_colors
+        return tracks, playlist
 
 
 class Scanner:
@@ -179,11 +184,12 @@ class Scanner:
 class TreeModel(QtGui.QStandardItemModel):
     def __init__(self, parent=None):
         super(TreeModel, self).__init__(parent)
+        self.loadTreeData()
 
     def loadTreeData(self):
         self.clear()
 
-        for folder in Folder().get_all():
+        for folder in Folder().getAll():
             parent = self.invisibleRootItem()
             for word in folder.path[len(os.path.dirname(root_dir)):].split("/")[1:]:
                 for i in range(parent.rowCount()):
@@ -195,6 +201,11 @@ class TreeModel(QtGui.QStandardItemModel):
                     it = QtGui.QStandardItem(word)
                     parent.setChild(parent.rowCount(), it)
                 parent = it
+
+        self.updateTitle()
+
+    def updateTitle(self):
+        self.setHeaderData(0, QtCore.Qt.Horizontal, root_dir)
 
     @staticmethod
     def getDirPath(index: QtCore.QModelIndex):
@@ -208,10 +219,12 @@ class TreeModel(QtGui.QStandardItemModel):
 class TableModel(QtCore.QAbstractTableModel):
     def __init__(self):
         super(TableModel, self).__init__()
-        self.headers = ["Scientist name", "Birthdate", "Contribution"]
-        self.rows = [("Newton", "1643-01-04", "Classical mechanics"),
-                ("Einstein", "1879-03-14", "Relativity"),
-                ("Darwin", "1809-02-12", "Evolution")]
+        self.headers = Track().headings()
+        self.tracks, self.rows = Track().getPlaylist()
+        # self.headers = ["Scientist name", "Birthdate", "Contribution"]
+        # self.rows = [("Newton", "1643-01-04", "Classical mechanics"),
+        #              ("Einstein", "1879-03-14", "Relativity"),
+        #              ("Darwin", "1809-02-12", "Evolution")]
 
     def rowCount(self, parent=None):
         return len(self.rows)
@@ -228,3 +241,10 @@ class TableModel(QtCore.QAbstractTableModel):
         if role != QtCore.Qt.DisplayRole or orientation != QtCore.Qt.Horizontal:
             return QtCore.QVariant()
         return self.headers[section]
+
+    def refreshPlaylist(self, query):
+        # QtCore.QModelIndex
+        topLeftIndex, bottomRightIndex = self.createIndex(0, 0), self.createIndex(len(self.rows) - 1, 0)
+        self.tracks, self.rows = Track().getPlaylist(query)
+        self.dataChanged.emit(topLeftIndex, bottomRightIndex, [QtCore.Qt.DisplayRole])
+        self.modelReset.emit()

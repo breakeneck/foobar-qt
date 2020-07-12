@@ -31,7 +31,7 @@ def drop():
 
 class Model:
     @property
-    def table_name(self):
+    def tableName(self):
         raise NotImplementedError("Please fill in table name")
 
     @property
@@ -46,7 +46,7 @@ class Model:
             setattr(self, attr, attrs[index])
 
     @property
-    def indexed_attributes(self):
+    def indexedAttrs(self):
         return []
 
     @staticmethod
@@ -67,15 +67,15 @@ class Model:
                 fields.append(f'{attr} {self.get_field_type(attr)}{is_pk}')
 
         fields_str = ','.join(fields)
-        db.execute(f'CREATE TABLE IF NOT EXISTS {self.table_name} ({fields_str})')
+        db.execute(f'CREATE TABLE IF NOT EXISTS {self.tableName} ({fields_str})')
 
         self.create_indexes()
 
         connection.commit()
 
     def create_indexes(self):
-        for attr in self.indexed_attributes:
-            db.execute(f"CREATE INDEX IF NOT EXISTS {attr}_{self.table_name} ON {self.table_name}({attr});")
+        for attr in self.indexedAttrs:
+            db.execute(f"CREATE INDEX IF NOT EXISTS {attr}_{self.tableName} ON {self.tableName}({attr});")
 
     def insert(self):
         attributes_list = []
@@ -90,7 +90,7 @@ class Model:
         attributes = ','.join(attributes_list)
 
         try:
-            db.execute(f'INSERT INTO {self.table_name}({attributes}) VALUES({question_marks})', values)
+            db.execute(f'INSERT INTO {self.tableName}({attributes}) VALUES({question_marks})', values)
             connection.commit()
         except Exception as e:
             print('Insert error: ' + str(e) + ' Attributes: ' + str(self.__dict__))

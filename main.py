@@ -40,7 +40,20 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def treeViewClick(self, index: QtCore.QModelIndex):
         library.selected_dir = library.TreeModel().getDirPath(index)
         self.searchChanged()
-        print(library.selected_dir)
+
+    def searchChanged(self):
+        self.tableModel.refreshPlaylist(self.searchEdit.text())
+        # query = ''
+        # if self.searchEdit.text():
+        #     query = f'(title LIKE "%{self.searchEdit.text()}%" OR artist LIKE "%{self.searchEdit.text()}%")'
+        #
+        # if library.selected_dir:
+        #     if query:
+        #         query += ' AND '
+        #     query += f'(dir_name LIKE "{library.selected_dir}%")'
+        #
+        # print(query)
+        # self.tableModel.setFilter(query)
 
     def getTrack(self, index: QtCore.QModelIndex):
         track = library.Track()
@@ -55,20 +68,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def browseDirClick(self):
         self.config.updateLibraryDir(QtWidgets.QFileDialog.getExistingDirectory(self))
-
-
-    def searchChanged(self):
-        query = ''
-        if self.searchEdit.text():
-            query = f'(title LIKE "%{self.searchEdit.text()}%" OR artist LIKE "%{self.searchEdit.text()}%")'
-
-        if library.selected_dir:
-            if query:
-                query += ' AND '
-            query += f'(dir_name LIKE "{library.selected_dir}%")'
-
-        print(query)
-        self.tableModel.setFilter(query)
+        library.updateDirs(self.config.getLibraryDirs())
+        self.treeModel.updateTitle()
 
     def playBtnClick(self):
         print([self.tableView.columnWidth(i) for i in range(0, self.tableModel.columnCount())])
@@ -110,17 +111,20 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
         # load Directory tree
         self.treeModel = library.TreeModel()
-        self.treeModel.loadTreeData()
         self.treeView.setModel(self.treeModel)
         #load Tracks
-        db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
-        db.setDatabaseName('db.sqlite3')
-        db.open()
-        self.tableModel = QtSql.QSqlTableModel(None, db)
-        self.tableModel.setTable('track')
-        self.tableModel.select()
+        self.tableModel = library.TableModel()
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+
+        # db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
+        # db.setDatabaseName('db.sqlite3')
+        # db.open()
+        # self.tableModel = QtSql.QSqlTableModel(None, db)
+        # self.tableModel.setTable('track')
+        # self.tableModel.select()
+        # self.tableView.setModel(self.tableModel)
+        # self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
 
 
 def main():
