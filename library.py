@@ -261,8 +261,6 @@ class TableModel(QtCore.QAbstractTableModel):
 
     def refreshPlaylist(self, query=''):
         self.tracks, self.rows = Track().getPlaylist(query)
-        # topLeftIndex, bottomRightIndex = self.createIndex(0, 0), self.createIndex(len(self.rows) - 1, 0)
-        # self.dataChanged.emit(topLeftIndex, bottomRightIndex, [QtCore.Qt.DisplayRole])
 
         self.groupRows.clear()
         for row, item in enumerate(self.tracks):

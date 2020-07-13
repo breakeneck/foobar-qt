@@ -17,10 +17,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config = config.Config(self)
         library.init(self.config.getLibraryDirs())
 
+        # add invisible elements
+        self.timer = QtCore.QTimer(self)
+        self.treeModel = library.TreeModel()
+        self.tableModel = library.TableModel()
         # make post ui setup after library is initialized
         self.postSetupUi()
 
-        # Load config goes after loadTracksToUi() to be able to restore columns width
+        # Load config goes after postSetupUi() to be able to restore columns width
         self.config.load(app)
         self.connectEvents(app)
 
@@ -90,8 +94,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         event.accept()
 
     def postSetupUi(self):
-        # add invisible elements
-        self.timer = QtCore.QTimer(self)
         self.timer.setInterval(100)
         # design updates
         self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
@@ -102,13 +104,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
         # load Directory tree
-        self.treeModel = library.TreeModel()
         self.treeView.setModel(self.treeModel)
-        #load Tracks
-        self.tableModel = library.TableModel()
+        # load Tracks
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        # print(self.tableModel.updateDirRows(self.tableView))
 
     def tableModelChanged(self):
         print('data changed')
