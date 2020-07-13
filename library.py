@@ -85,13 +85,6 @@ class Track(database.Model):
     def tableName(self):
         return TB_TRACK
 
-    # def toList(self):
-    #     return (self.id, self.artist, self.title, self.album, self.full_path)
-    #
-    # @staticmethod
-    # def headings(self):
-    #     return['id', 'artist', 'title', 'album', 'full_path']
-
     def getAttrValues(self):
         return tuple(self.__dict__.values())
 

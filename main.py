@@ -1,6 +1,7 @@
 import sys
 
 from PyQt5 import QtWidgets, QtCore, QtSql
+import lyricwikia
 
 import config
 import design
@@ -17,10 +18,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config = config.Config(self)
         library.init(self.config.getLibraryDirs())
 
-        # add invisible elements
-        self.timer = QtCore.QTimer(self)
-        self.treeModel = library.TreeModel()
-        self.tableModel = library.TableModel()
         # make post ui setup after library is initialized
         self.postSetupUi()
 
@@ -52,24 +49,31 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
 
     def getTrack(self, index: QtCore.QModelIndex):
-        track = library.Track()
-        track.setAttrs([self.tableModel.data(self.tableModel.index(index.row(), col)) for col in
-                        range(0, self.tableModel.columnCount())])
+        track = self.tableModel.tracks[index.row()]
         print(track.__dict__)
         return track
 
-    def play(self, index: QtCore.QModelIndex):
-        player.play(self.getTrack(index))
+    def playBtnClick(self):
+        if player.play_pause():
+            self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
+        else:
+            self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause))
 
+    def play(self, index: QtCore.QModelIndex):
+        track = self.getTrack(index)
+        player.play(track)
+        self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause))
+        try:
+            lyrics = lyricwikia.get_lyrics(track.artist, track.title)
+            self.textBrowser.setText(lyrics)
+        except Exception as e:
+            print(str(e))
+            self.textBrowser.setText('')
 
     def browseDirClick(self):
         self.config.updateLibraryDir(QtWidgets.QFileDialog.getExistingDirectory(self))
         library.updateDirs(self.config.getLibraryDirs())
         self.treeModel.updateTitle()
-
-    def playBtnClick(self):
-        print([self.tableView.columnWidth(i) for i in range(0, self.tableModel.columnCount())])
-
 
     def setPos(self):
         self.timer.stop()
@@ -80,7 +84,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def updatePos(self):
         media_pos = int(player.mediaplayer.get_position() * 1000)
         self.posSlider.setValue(media_pos)
-
         # No need to call this function if nothing is played
         if not player.mediaplayer.is_playing():
             self.timer.stop()
@@ -94,6 +97,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         event.accept()
 
     def postSetupUi(self):
+        # add invisible elements
+        self.timer = QtCore.QTimer(self)
+        self.treeModel = library.TreeModel()
+        self.tableModel = library.TableModel()
+        # update qtDesigner non available properties
         self.timer.setInterval(100)
         # design updates
         self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())

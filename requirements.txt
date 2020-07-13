@@ -1,0 +1,4 @@
+lyricwikia
+pyqt5
+python-vlc
+eyed3
