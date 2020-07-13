@@ -46,17 +46,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def searchChanged(self):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
-        # query = ''
-        # if self.searchEdit.text():
-        #     query = f'(title LIKE "%{self.searchEdit.text()}%" OR artist LIKE "%{self.searchEdit.text()}%")'
-        #
-        # if library.selected_dir:
-        #     if query:
-        #         query += ' AND '
-        #     query += f'(dir_name LIKE "{library.selected_dir}%")'
-        #
-        # print(query)
-        # self.tableModel.setFilter(query)
 
     def getTrack(self, index: QtCore.QModelIndex):
         track = library.Track()
@@ -120,15 +109,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         # print(self.tableModel.updateDirRows(self.tableView))
-
-        # db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
-        # db.setDatabaseName('db.sqlite3')
-        # db.open()
-        # self.tableModel = QtSql.QSqlTableModel(None, db)
-        # self.tableModel.setTable('track')
-        # self.tableModel.select()
-        # self.tableView.setModel(self.tableModel)
-        # self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
 
     def tableModelChanged(self):
         print('data changed')
