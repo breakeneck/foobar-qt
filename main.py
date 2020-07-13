@@ -24,6 +24,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config.load(app)
         self.connectEvents(app)
 
+        self.tableModel.refreshPlaylist()
+
     def connectEvents(self, app):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
         self.browseDirBtn.clicked.connect(self.browseDirClick)
@@ -36,6 +38,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.posSlider.sliderMoved.connect(self.setPos)
         self.posSlider.sliderPressed.connect(self.setPos)
         self.timer.timeout.connect(self.updatePos)
+        self.tableModel.modelReset.connect(self.tableModelChanged)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         library.selected_dir = library.TreeModel().getDirPath(index)
@@ -116,6 +119,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel = library.TableModel()
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        # print(self.tableModel.updateDirRows(self.tableView))
 
         # db = QtSql.QSqlDatabase.addDatabase('QSQLITE')
         # db.setDatabaseName('db.sqlite3')
@@ -126,6 +130,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # self.tableView.setModel(self.tableModel)
         # self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
 
+    def tableModelChanged(self):
+        print('data changed')
+        for row in self.tableModel.groupRows:
+            self.tableView.setSpan(row, 0, 1, library.Track.colCount())
 
 def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication

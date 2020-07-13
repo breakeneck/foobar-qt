@@ -4,7 +4,7 @@ faulthandler.enable()
 import os
 import eyed3
 import database
-from PyQt5 import QtGui, QtCore
+from PyQt5 import QtGui, QtCore, QtWidgets
 
 TB_FOLDER = 'folder'
 TB_TRACK = 'track'
@@ -73,6 +73,10 @@ class Track(database.Model):
         self.base_dir_name = ''
         self.duration = 0
 
+    @staticmethod
+    def colCount():
+        return 11
+
     @property
     def indexedAttrs(self):
         return ['artist', 'title', 'dir_name']
@@ -81,12 +85,18 @@ class Track(database.Model):
     def tableName(self):
         return TB_TRACK
 
-    def toList(self):
-        return (self.id, self.artist, self.title, self.album, self.full_path)
+    # def toList(self):
+    #     return (self.id, self.artist, self.title, self.album, self.full_path)
+    #
+    # @staticmethod
+    # def headings(self):
+    #     return['id', 'artist', 'title', 'album', 'full_path']
 
-    @staticmethod
-    def headings():
-        return ['id', 'artist', 'title', 'album', 'full_path']
+    def getAttrValues(self):
+        return tuple(self.__dict__.values())
+
+    def getAttrLabels(self):
+        return [*self.__dict__.keys()]
 
     def getAllByPath(self, path, query):
         condition = f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ''
@@ -109,11 +119,13 @@ class Track(database.Model):
             if track.base_dir_name != current_dir:
                 current_dir = track.base_dir_name
 
+                dir_row = [''] * (Track.colCount())
+                dir_row[0] = current_dir
+                playlist.append(tuple(dir_row))
                 tracks.append(current_dir)
-                # playlist.append([current_dir])
 
+            playlist.append(track.getAttrValues())
             tracks.append(track)
-            playlist.append(track.toList())
 
         return tracks, playlist
 
@@ -219,12 +231,10 @@ class TreeModel(QtGui.QStandardItemModel):
 class TableModel(QtCore.QAbstractTableModel):
     def __init__(self):
         super(TableModel, self).__init__()
-        self.headers = Track().headings()
-        self.tracks, self.rows = Track().getPlaylist()
-        # self.headers = ["Scientist name", "Birthdate", "Contribution"]
-        # self.rows = [("Newton", "1643-01-04", "Classical mechanics"),
-        #              ("Einstein", "1879-03-14", "Relativity"),
-        #              ("Darwin", "1809-02-12", "Evolution")]
+        self.headers = Track().getAttrLabels()
+        self.groupRows = []
+        self.tracks = []
+        self.rows = []
 
     def rowCount(self, parent=None):
         return len(self.rows)
@@ -233,6 +243,13 @@ class TableModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
     def data(self, index, role=None):
+        if role == QtCore.Qt.FontRole and index.row() in self.groupRows:
+            font = QtGui.QFont()
+            font.setBold(True)
+            return font
+        # } else if (role == Qt::ForegroundRole & & index.column() == 0) {
+        # return QColor(Qt::red);
+        # }
         if role != QtCore.Qt.DisplayRole:
             return QtCore.QVariant()
         return self.rows[index.row()][index.column()]
@@ -242,9 +259,16 @@ class TableModel(QtCore.QAbstractTableModel):
             return QtCore.QVariant()
         return self.headers[section]
 
-    def refreshPlaylist(self, query):
-        # QtCore.QModelIndex
-        topLeftIndex, bottomRightIndex = self.createIndex(0, 0), self.createIndex(len(self.rows) - 1, 0)
+    def refreshPlaylist(self, query=''):
         self.tracks, self.rows = Track().getPlaylist(query)
-        self.dataChanged.emit(topLeftIndex, bottomRightIndex, [QtCore.Qt.DisplayRole])
+        # topLeftIndex, bottomRightIndex = self.createIndex(0, 0), self.createIndex(len(self.rows) - 1, 0)
+        # self.dataChanged.emit(topLeftIndex, bottomRightIndex, [QtCore.Qt.DisplayRole])
+
+        self.groupRows.clear()
+        for row, item in enumerate(self.tracks):
+            if isinstance(item, str):
+                self.groupRows.append(row)
+
         self.modelReset.emit()
+
+
