@@ -228,6 +228,7 @@ class TableModel(QtCore.QAbstractTableModel):
         self.groupRows = []
         self.tracks = []
         self.rows = []
+        self.query = ''
 
     def rowCount(self, parent=None):
         return len(self.rows)
@@ -253,6 +254,7 @@ class TableModel(QtCore.QAbstractTableModel):
         return self.headers[section]
 
     def refreshPlaylist(self, query=''):
+        self.query = ''
         self.tracks, self.rows = Track().getPlaylist(query)
 
         self.modelAboutToBeReset.emit()
@@ -263,4 +265,36 @@ class TableModel(QtCore.QAbstractTableModel):
 
         self.modelReset.emit()
 
+    def getNextIndex(self, player):
+        if not self.getNextRow(player):
+            return False
 
+        while not isinstance(self.tracks[player.now_playing_row], Track):
+            if not self.getNextRow(player):
+                return False
+
+        return self.index(player.now_playing_row, 0)
+
+    def getNextRow(self, player):
+        if player.now_playing_row < len(self.tracks) - 1:
+            player.now_playing_row += 1
+            return True
+        else:
+            return False
+
+    def getPrevIndex(self, player):
+        if not self.getPrevRow(player):
+            return False
+
+        while not isinstance(self.tracks[player.now_playing_row], Track):
+            if not self.getPrevRow(player):
+                return False
+
+        return self.index(player.now_playing_row, 0)
+
+    def getPrevRow(self, player):
+        if player.now_playing_row > 0:
+            player.now_playing_row -= 1
+            return True
+        else:
+            return False

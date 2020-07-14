@@ -52,6 +52,13 @@
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="stopAfterChk">
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QSlider" name="posSlider">
         <property name="orientation">
          <enum>Qt::Horizontal</enum>

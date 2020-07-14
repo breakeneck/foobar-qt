@@ -1,14 +1,16 @@
-from library import Track
+import library
 import vlc
 
 paused = False
-now_playing: Track = None
+now_playing_row: -1
+now_playing: library.Track = None
+stop_after = False
 instance = vlc.Instance()
 mediaplayer = instance.media_player_new()
 
 
-def play_pause(track: Track = None, pos=0):
-    global paused, now_playing
+def play_pause(track: library.Track = None, pos=0):
+    global paused
 
     if now_playing:
         if paused:
@@ -16,20 +18,15 @@ def play_pause(track: Track = None, pos=0):
         else:
             mediaplayer.pause()
         paused = not paused
-
     return not paused
 
-
-def play(track: Track = None, pos=0):
-    global paused, now_playing
+def play(index: int, track: library.Track = None):
+    global paused, now_playing, now_playing_row
 
     try:
         media = instance.media_new(track.full_path)
-        # Put the media in the media player
         mediaplayer.set_media(media)
-        # Parse the metadata of the file
-        media.parse()
-        # Set the title of the track as window title
+        # media.parse()
         # setWindowTitle(media.get_meta(0))
     except:
         paused = True
@@ -38,9 +35,10 @@ def play(track: Track = None, pos=0):
 
     paused = False
     now_playing = track
+    now_playing_row = index
     mediaplayer.play()
 
-    return True
+    return track
 
 
 

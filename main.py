@@ -32,10 +32,13 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(library.rescan)
         self.playBtn.clicked.connect(self.playBtnClick)
+        self.nextBtn.clicked.connect(self.next)
+        self.prevBtn.clicked.connect(self.prev)
+        self.nextRndBtn.clicked.connect(self.nextRndBtnClick)
+        self.stopAfterChk.clicked.connect(self.stopAfterChkClick)
         self.searchEdit.textChanged.connect(self.searchChanged)
         self.treeView.clicked.connect(self.treeViewClick)
         self.tableView.doubleClicked.connect(self.play)
-        # self.posSlider.setMaximum(1000)
         self.posSlider.sliderMoved.connect(self.setPos)
         self.posSlider.sliderPressed.connect(self.setPos)
         self.timer.timeout.connect(self.updatePos)
@@ -49,23 +52,67 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def searchChanged(self):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
 
-    def getTrack(self, index: QtCore.QModelIndex):
-        track = self.tableModel.tracks[index.row()]
-        print(track.__dict__)
-        return track
+    def stop(self):
+        self.timer.stop()
+        if not player.paused:
+            player.stop()
+            self.updatePlayIcon()
+
+    def updatePlayIcon(self):
+        icon = QtWidgets.QStyle.SP_MediaPause if player.paused else QtWidgets.QStyle.SP_MediaPlay
+        self.playBtn.setIcon(self.style().standardIcon(icon))
+
+    def play(self, index: QtCore.QModelIndex = None):
+        if not index:
+            return print('No item selected')
+
+        track = player.play(index.row(), self.tableModel.tracks[index.row()])
+
+        if track:
+            self.timer.start()
+            self.updatePlayIcon()
+            self.loadLyrics()
 
     def playBtnClick(self):
-        if player.play_pause():
-            self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
-        else:
-            self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause))
+        if not player.now_playing:
+            return self.play((self.tableView.selectedIndexes() or [None])[0])
 
-    def play(self, index: QtCore.QModelIndex):
-        track = self.getTrack(index)
-        player.play(track)
-        self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause))
+        if player.play_pause():
+            self.timer.start()
+        else:
+            self.timer.stop()
+        self.updatePlayIcon()
+
+    def next(self):
+        print('Playing Next')
+
+        nextIndex = self.tableModel.getNextIndex(player)
+        if nextIndex:
+            self.play(nextIndex)
+            self.tableView.setCurrentIndex(nextIndex)
+        else:
+            self.stop()
+
+    def prev(self):
+        print('Playing Prev')
+
+        prevIndex = self.tableModel.getPrevIndex(player)
+        if prevIndex:
+            self.play(prevIndex)
+            self.tableView.setCurrentIndex(prevIndex)
+        else:
+            self.stop()
+
+    def nextRndBtnClick(self):
+        pass
+
+    def stopAfterChkClick(self):
+        player.stop_after = not player.stop_after
+        self.stopAfterChk.setChecked(player.stop_after)
+
+    def loadLyrics(self):
         try:
-            lyrics = lyricwikia.get_lyrics(track.artist, track.title)
+            lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
             self.textBrowser.setText(lyrics)
         except Exception as e:
             print(str(e))
@@ -84,18 +131,15 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def updatePos(self):
         media_pos = int(player.mediaplayer.get_position() * 1000)
+        # print('mediapos', media_pos)
         self.posSlider.setValue(media_pos)
         # No need to call this function if nothing is played
         if not player.mediaplayer.is_playing():
-            self.timer.stop()
-
-            # After the video finished, the play button stills shows "Pause",
-            if not player.paused:
-                player.stop()
-
-    def closeEvent(self, event):
-        self.config.save()
-        event.accept()
+            if self.stopAfterChk.isChecked():
+                self.stopAfterChk.setChecked(False)
+                self.stop()
+            else:
+                self.next()
 
     def postSetupUi(self):
         # add invisible elements
@@ -110,8 +154,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.nextBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
         self.prevBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
         self.nextRndBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogHelpButton))
+        self.stopAfterChk.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
         self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
+        self.posSlider.setMaximum(1000)
         # load Directory tree
         self.treeView.setModel(self.treeModel)
         # load Tracks
@@ -125,6 +171,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def tableModelChanged(self):
         for row in self.tableModel.groupRows:
             self.tableView.setSpan(row, 0, 1, library.Track.colCount())
+
+    def closeEvent(self, event):
+        self.config.save()
+        event.accept()
 
 def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
