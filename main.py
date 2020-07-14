@@ -64,9 +64,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.updatePlayStatus()
 
     def updatePlayStatus(self):
-        icon = QtWidgets.QStyle.SP_MediaPause if player.paused else QtWidgets.QStyle.SP_MediaPlay
+        icon = QtWidgets.QStyle.SP_MediaPlay if player.no_music() else QtWidgets.QStyle.SP_MediaPause
         self.playBtn.setIcon(self.style().standardIcon(icon))
-        if player.paused or not player.now_playing:
+        if player.no_music():
             self.timer.stop()
         else:
             self.timer.start()
