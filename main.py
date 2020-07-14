@@ -129,9 +129,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.textBrowser.setText('')
 
     def browseDirClick(self):
-        self.config.updateLibraryDir(QtWidgets.QFileDialog.getExistingDirectory(self))
-        library.updateDirs(self.config.getLibraryDirs())
-        self.treeModel.updateTitle()
+        newDir = QtWidgets.QFileDialog.getExistingDirectory(self)
+        if newDir:
+            self.config.updateLibraryDir()
+            library.updateDirs(self.config.getLibraryDirs())
+            self.treeModel.updateTitle()
 
     def setPos(self):
         self.timer.stop()
