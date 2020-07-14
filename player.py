@@ -55,3 +55,6 @@ def stop():
     paused = False
     now_playing = None
     mediaplayer.stop()
+
+def getNowPlayingMsg():
+    return f'{now_playing.artist} - {now_playing.title} [{now_playing.album}]'

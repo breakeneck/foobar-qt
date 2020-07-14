@@ -9,6 +9,12 @@ import library
 import player
 
 
+class StatusBar(QtWidgets.QStatusBar):
+    clicked = QtCore.pyqtSignal()
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+
+
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def __init__(self, app):
         super().__init__()
@@ -44,6 +50,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.timer.timeout.connect(self.updatePos)
         self.tableModel.modelAboutToBeReset.connect(self.tableModelBeforeChanged)
         self.tableModel.modelReset.connect(self.tableModelChanged)
+        self.statusbar.clicked.connect(self.selectCurrentTrack)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         library.selected_dir = library.TreeModel().getDirPath(index)
@@ -63,6 +70,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.timer.stop()
         else:
             self.timer.start()
+        self.statusbar.showMessage(player.getNowPlayingMsg())
+
+    def selectCurrentTrack(self):
+        self.tableView.setCurrentIndex(self.tableModel.index(player.now_playing_row, 0))
 
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
@@ -70,7 +81,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         track = player.play(index.row(), self.tableModel.tracks[index.row()])
         if track:
-            self.tableView.setCurrentIndex(index)
+            self.selectCurrentTrack()
             self.updatePlayStatus()
             self.loadLyrics()
 
@@ -160,6 +171,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # load Tracks
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        #my custom statusbar
+        self.statusbar = StatusBar()
+        self.statusbar.setObjectName("statusbar")
+        self.setStatusBar(self.statusbar)
 
     def tableModelBeforeChanged(self):
         for row in self.tableModel.groupRows:
