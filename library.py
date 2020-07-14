@@ -4,6 +4,7 @@ faulthandler.enable()
 import os
 import eyed3
 import database
+from random import randint
 from PyQt5 import QtGui, QtCore, QtWidgets
 
 TB_FOLDER = 'folder'
@@ -298,3 +299,14 @@ class TableModel(QtCore.QAbstractTableModel):
             return True
         else:
             return False
+
+    def getRndIndex(self, player):
+        if not len(self.tracks):
+            return False
+
+        index = randint(0, len(self.tracks) - 1)
+        while not isinstance(self.tracks[index], Track):
+            index = randint(0, len(self.tracks) - 1)
+
+        player.now_playing_row = index
+        return self.index(player.now_playing_row, 0)

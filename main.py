@@ -53,58 +53,55 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
 
     def stop(self):
-        self.timer.stop()
-        if not player.paused:
-            player.stop()
-            self.updatePlayIcon()
+        player.stop()
+        self.updatePlayStatus()
 
-    def updatePlayIcon(self):
+    def updatePlayStatus(self):
         icon = QtWidgets.QStyle.SP_MediaPause if player.paused else QtWidgets.QStyle.SP_MediaPlay
         self.playBtn.setIcon(self.style().standardIcon(icon))
+        if player.paused or not player.now_playing:
+            self.timer.stop()
+        else:
+            self.timer.start()
 
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
             return print('No item selected')
 
         track = player.play(index.row(), self.tableModel.tracks[index.row()])
-
         if track:
-            self.timer.start()
-            self.updatePlayIcon()
+            self.tableView.setCurrentIndex(index)
+            self.updatePlayStatus()
             self.loadLyrics()
 
     def playBtnClick(self):
         if not player.now_playing:
             return self.play((self.tableView.selectedIndexes() or [None])[0])
 
-        if player.play_pause():
-            self.timer.start()
-        else:
-            self.timer.stop()
-        self.updatePlayIcon()
+        player.play_pause()
+        self.updatePlayStatus()
 
     def next(self):
-        print('Playing Next')
-
         nextIndex = self.tableModel.getNextIndex(player)
         if nextIndex:
             self.play(nextIndex)
-            self.tableView.setCurrentIndex(nextIndex)
         else:
             self.stop()
 
     def prev(self):
-        print('Playing Prev')
-
         prevIndex = self.tableModel.getPrevIndex(player)
         if prevIndex:
             self.play(prevIndex)
-            self.tableView.setCurrentIndex(prevIndex)
         else:
             self.stop()
 
     def nextRndBtnClick(self):
-        pass
+        rndIndex = self.tableModel.getRndIndex(player)
+        if rndIndex:
+            self.play(rndIndex)
+        else:
+            self.stop()
+
 
     def stopAfterChkClick(self):
         player.stop_after = not player.stop_after
