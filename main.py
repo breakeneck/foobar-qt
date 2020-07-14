@@ -73,7 +73,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.statusbar.showMessage(player.getNowPlayingMsg())
 
     def selectCurrentTrack(self):
-        self.tableView.setCurrentIndex(self.tableModel.index(player.now_playing_row, 0))
+        currentIndex = self.tableModel.getNowPlayIndex()
+        if currentIndex:
+            self.tableView.setCurrentIndex(currentIndex)
 
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
@@ -93,21 +95,21 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.updatePlayStatus()
 
     def next(self):
-        nextIndex = self.tableModel.getNextIndex(player)
+        nextIndex = self.tableModel.getNextIndex()
         if nextIndex:
             self.play(nextIndex)
         else:
             self.stop()
 
     def prev(self):
-        prevIndex = self.tableModel.getPrevIndex(player)
+        prevIndex = self.tableModel.getPrevIndex()
         if prevIndex:
             self.play(prevIndex)
         else:
             self.stop()
 
     def nextRndBtnClick(self):
-        rndIndex = self.tableModel.getRndIndex(player)
+        rndIndex = self.tableModel.getRndIndex()
         if rndIndex:
             self.play(rndIndex)
         else:

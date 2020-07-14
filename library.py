@@ -4,6 +4,7 @@ faulthandler.enable()
 import os
 import eyed3
 import database
+import player
 from random import randint
 from PyQt5 import QtGui, QtCore, QtWidgets
 
@@ -266,41 +267,49 @@ class TableModel(QtCore.QAbstractTableModel):
 
         self.modelReset.emit()
 
-    def getNextIndex(self, player):
-        if not self.getNextRow(player):
+    def getNowPlayIndex(self):
+        trackId = player.now_playing.id
+        for row, track in enumerate(self.tracks):
+            if isinstance(track, Track) and track.id == trackId:
+                return self.index(row, 0)
+        return False
+
+
+    def getNextIndex(self):
+        if not self.getNextRow():
             return False
 
         while not isinstance(self.tracks[player.now_playing_row], Track):
-            if not self.getNextRow(player):
+            if not self.getNextRow():
                 return False
 
         return self.index(player.now_playing_row, 0)
 
-    def getNextRow(self, player):
+    def getNextRow(self):
         if player.now_playing_row < len(self.tracks) - 1:
             player.now_playing_row += 1
             return True
         else:
             return False
 
-    def getPrevIndex(self, player):
-        if not self.getPrevRow(player):
+    def getPrevIndex(self):
+        if not self.getPrevRow():
             return False
 
         while not isinstance(self.tracks[player.now_playing_row], Track):
-            if not self.getPrevRow(player):
+            if not self.getPrevRow():
                 return False
 
         return self.index(player.now_playing_row, 0)
 
-    def getPrevRow(self, player):
+    def getPrevRow(self):
         if player.now_playing_row > 0:
             player.now_playing_row -= 1
             return True
         else:
             return False
 
-    def getRndIndex(self, player):
+    def getRndIndex(self):
         if not len(self.tracks):
             return False
 

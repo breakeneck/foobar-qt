@@ -3,13 +3,14 @@ import vlc
 
 paused = False
 now_playing_row: -1
-now_playing: library.Track = None
+# now_playing:  = None
+now_playing: None  # type: library.Track
 stop_after = False
 instance = vlc.Instance()
 mediaplayer = instance.media_player_new()
 
 
-def play_pause(track: library.Track = None, pos=0):
+def play_pause(track=None, pos=0):
     global paused
 
     if now_playing:
@@ -20,7 +21,7 @@ def play_pause(track: library.Track = None, pos=0):
         paused = not paused
     return not paused
 
-def play(index: int, track: library.Track = None):
+def play(index: int, track = None):
     global paused, now_playing, now_playing_row
 
     try:
