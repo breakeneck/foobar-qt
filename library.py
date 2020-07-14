@@ -98,7 +98,7 @@ class Track(database.Model):
         condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
         # print(condition)
 
-        database.db.execute(f'SELECT * FROM {self.tableName} WHERE {condition}')
+        database.db.execute(f'SELECT * FROM {self.tableName}' + (f' WHERE {condition}' if condition else ''))
         return map(lambda row: Track().load(row), database.db.fetchall())
 
     @staticmethod
