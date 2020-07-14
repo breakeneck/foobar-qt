@@ -95,7 +95,7 @@ class Track(database.Model):
         condition = f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ''
         # print(condition)
         condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
-        print(condition)
+        # print(condition)
 
         database.db.execute(f'SELECT * FROM {self.tableName} WHERE {condition}')
         return map(lambda row: Track().load(row), database.db.fetchall())
@@ -255,6 +255,7 @@ class TableModel(QtCore.QAbstractTableModel):
     def refreshPlaylist(self, query=''):
         self.tracks, self.rows = Track().getPlaylist(query)
 
+        self.modelAboutToBeReset.emit()
         self.groupRows.clear()
         for row, item in enumerate(self.tracks):
             if isinstance(item, str):

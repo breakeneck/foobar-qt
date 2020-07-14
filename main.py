@@ -39,6 +39,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.posSlider.sliderMoved.connect(self.setPos)
         self.posSlider.sliderPressed.connect(self.setPos)
         self.timer.timeout.connect(self.updatePos)
+        self.tableModel.modelAboutToBeReset.connect(self.tableModelBeforeChanged)
         self.tableModel.modelReset.connect(self.tableModelChanged)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
@@ -117,8 +118,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
 
+    def tableModelBeforeChanged(self):
+        for row in self.tableModel.groupRows:
+            self.tableView.setSpan(row, 0, 1, 1)
+
     def tableModelChanged(self):
-        print('data changed')
         for row in self.tableModel.groupRows:
             self.tableView.setSpan(row, 0, 1, library.Track.colCount())
 
