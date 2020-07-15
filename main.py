@@ -74,7 +74,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def selectCurrentTrack(self):
         currentIndex = self.tableModel.getNowPlayIndex()
-        if currentIndex:
+        if currentIndex is not False:
             self.tableView.setCurrentIndex(currentIndex)
 
     def play(self, index: QtCore.QModelIndex = None):

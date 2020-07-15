@@ -271,11 +271,14 @@ class TableModel(QtCore.QAbstractTableModel):
         trackId = player.now_playing.id
         for row, track in enumerate(self.tracks):
             if isinstance(track, Track) and track.id == trackId:
+                player.now_playing_row = row
                 return self.index(row, 0)
+        player.now_playing_row = -1
         return False
 
 
     def getNextIndex(self):
+        self.getNowPlayIndex()  # Refresh player.now_playing_row
         if not self.getNextRow():
             return False
 
@@ -293,6 +296,7 @@ class TableModel(QtCore.QAbstractTableModel):
             return False
 
     def getPrevIndex(self):
+        self.getNowPlayIndex()  # Refresh player.now_playing_row
         if not self.getPrevRow():
             return False
 
