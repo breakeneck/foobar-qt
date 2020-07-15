@@ -57,7 +57,7 @@ class Folder(database.Model):
         return ['path']
 
     def getAll(self):
-        database.db.execute(f'SELECT * FROM {self.tableName}')
+        database.db.execute(f'SELECT * FROM {self.tableName} ORDER BY path')
         return map(lambda row: Folder().load(row), database.db.fetchall())
 
 
@@ -98,6 +98,7 @@ class Track(database.Model):
         # print(condition)
         condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
         # print(condition)
+        condition += ' ORDER BY full_path'
 
         database.db.execute(f'SELECT * FROM {self.tableName}' + (f' WHERE {condition}' if condition else ''))
         return map(lambda row: Track().load(row), database.db.fetchall())

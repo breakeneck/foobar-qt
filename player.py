@@ -64,6 +64,6 @@ def no_music():
 
 def getNowPlayingMsg():
     if isinstance(now_playing, library.Track):
-        return f'{now_playing.artist} - {now_playing.title} [{now_playing.album}]'
+        return f'{"Paused: " if paused else "Playing: "}{now_playing.artist} - {now_playing.title} [{now_playing.album}]'
     else:
         return 'Play stopped'
