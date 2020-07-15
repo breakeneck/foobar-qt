@@ -19,6 +19,7 @@ class Config:
                 'splitter': [246, 519, 276],
                 'library_dir': '~/Music',
                 'selected_dir': '',
+                'selected_dir_row': -1,
                 'column_sizes': [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
             }
 
@@ -39,11 +40,12 @@ class Config:
 
     def updateLibraryDir(self, directory):
         self.config['library_dir'] = directory
-        self.save()
+        # self.save()
 
-    def updateSelectedDir(self, directory):
+    def updateSelectedDir(self, directory, row):
         self.config['selected_dir'] = directory
-        self.save()
+        self.config['selected_dir_row'] = row
+        # self.save()
 
     def getLibraryDirs(self):
-        return self.config['library_dir'], self.config['selected_dir']
+        return self.config['library_dir'], self.config['selected_dir'], self.config['selected_dir_row']

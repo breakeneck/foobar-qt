@@ -53,7 +53,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.statusbar.clicked.connect(self.selectCurrentTrack)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
+        library.selected_dir_row = index.row()
         library.selected_dir = library.TreeModel().getDirPath(index)
+        self.config.updateSelectedDir(library.selected_dir, library.selected_dir_row)
         self.searchChanged()
 
     def searchChanged(self):
@@ -131,9 +133,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def browseDirClick(self):
         newDir = QtWidgets.QFileDialog.getExistingDirectory(self)
         if newDir:
-            self.config.updateLibraryDir()
-            library.updateDirs(self.config.getLibraryDirs())
-            self.treeModel.updateTitle()
+            self.config.updateLibraryDir(newDir)
+            library.updateDirs([newDir, '', -1])
+            library.rescan()
+            self.treeModel.loadTreeData()
 
     def setPos(self):
         self.timer.stop()
@@ -158,6 +161,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.timer = QtCore.QTimer(self)
         self.treeModel = library.TreeModel()
         self.tableModel = library.TableModel()
+        self.statusbar = StatusBar()
         # update qtDesigner non available properties
         self.timer.setInterval(100)
         # design updates
@@ -176,7 +180,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         #my custom statusbar
-        self.statusbar = StatusBar()
         self.statusbar.setObjectName("statusbar")
         self.setStatusBar(self.statusbar)
 

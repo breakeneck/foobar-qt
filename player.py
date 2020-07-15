@@ -3,7 +3,6 @@ import vlc
 
 paused = False
 now_playing_row: -1
-# now_playing:  = None
 now_playing: None  # type: library.Track
 stop_after = False
 instance = vlc.Instance()
