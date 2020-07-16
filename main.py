@@ -41,7 +41,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.nextBtn.clicked.connect(self.next)
         self.prevBtn.clicked.connect(self.prev)
         self.nextRndBtn.clicked.connect(self.nextRndBtnClick)
-        self.stopAfterChk.clicked.connect(self.stopAfterChkClick)
         self.searchEdit.textChanged.connect(self.searchChanged)
         self.treeView.clicked.connect(self.treeViewClick)
         self.tableView.doubleClicked.connect(self.play)
@@ -118,10 +117,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.stop()
 
 
-    def stopAfterChkClick(self):
-        player.stop_after = not player.stop_after
-        self.stopAfterChk.setChecked(player.stop_after)
-
     def loadLyrics(self):
         try:
             lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
@@ -150,10 +145,13 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.posSlider.setValue(media_pos)
         # No need to call this function if nothing is played
         if not player.mediaplayer.is_playing():
+            print('check for end of track')
             if self.stopAfterChk.isChecked():
+                print('track finished, go stop')
                 self.stopAfterChk.setChecked(False)
                 self.stop()
             else:
+                print('track finished, go next')
                 self.next()
 
     def postSetupUi(self):
