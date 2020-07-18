@@ -84,7 +84,7 @@
        <widget class="QComboBox" name="themeCombo"/>
       </item>
       <item>
-       <widget class="QToolButton" name="orderBtn">
+       <widget class="QToolButton" name="rndOrderBtn">
         <property name="text">
          <string>...</string>
         </property>

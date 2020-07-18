@@ -149,7 +149,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 self.stopAfterBtn.setChecked(False)
                 self.stop()
             else:
-                self.nextRnd() if self.orderBtn.isChecked() else self.next()
+                self.nextRnd() if self.rndOrderBtn.isChecked() else self.next()
 
     def postSetupUi(self):
         # add invisible elements
@@ -166,7 +166,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.prevBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
         self.nextRndBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogHelpButton))
         self.stopAfterBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
-        self.orderBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxQuestion))
+        self.rndOrderBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxQuestion))
         self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
         self.posSlider.setMaximum(1000)
