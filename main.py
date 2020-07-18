@@ -40,7 +40,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.playBtn.clicked.connect(self.playBtnClick)
         self.nextBtn.clicked.connect(self.next)
         self.prevBtn.clicked.connect(self.prev)
-        self.nextRndBtn.clicked.connect(self.nextRndBtnClick)
+        self.nextRndBtn.clicked.connect(self.nextRnd)
         self.searchEdit.textChanged.connect(self.searchChanged)
         self.treeView.clicked.connect(self.treeViewClick)
         self.tableView.doubleClicked.connect(self.play)
@@ -78,6 +78,13 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if currentIndex is not False:
             self.tableView.setCurrentIndex(currentIndex)
 
+    def playBtnClick(self):
+        if not player.now_playing:
+            return self.play((self.tableView.selectedIndexes() or [None])[0])
+
+        player.play_pause()
+        self.updatePlayStatus()
+
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
             return print('No item selected')
@@ -87,13 +94,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.selectCurrentTrack()
             self.updatePlayStatus()
             self.loadLyrics()
-
-    def playBtnClick(self):
-        if not player.now_playing:
-            return self.play((self.tableView.selectedIndexes() or [None])[0])
-
-        player.play_pause()
-        self.updatePlayStatus()
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()
@@ -109,7 +109,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         else:
             self.stop()
 
-    def nextRndBtnClick(self):
+    def nextRnd(self):
         rndIndex = self.tableModel.getRndIndex()
         if rndIndex:
             self.play(rndIndex)
@@ -145,14 +145,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.posSlider.setValue(media_pos)
         # No need to call this function if nothing is played
         if not player.mediaplayer.is_playing():
-            print('check for end of track')
-            if self.stopAfterChk.isChecked():
-                print('track finished, go stop')
-                self.stopAfterChk.setChecked(False)
+            if self.stopAfterBtn.isChecked():
+                self.stopAfterBtn.setChecked(False)
                 self.stop()
             else:
-                print('track finished, go next')
-                self.next()
+                self.nextRnd() if self.orderBtn.isChecked() else self.next()
 
     def postSetupUi(self):
         # add invisible elements
@@ -168,7 +165,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.nextBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
         self.prevBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
         self.nextRndBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogHelpButton))
-        self.stopAfterChk.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
+        self.stopAfterBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
+        self.orderBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxQuestion))
         self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
         self.posSlider.setMaximum(1000)
