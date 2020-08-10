@@ -1,6 +1,6 @@
 import sys
 
-from PyQt5 import QtWidgets, QtCore, QtSql
+from PyQt5 import QtWidgets, QtCore, QtSql, Qt
 import lyricwikia
 
 import config
@@ -50,6 +50,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel.modelAboutToBeReset.connect(self.tableModelBeforeChanged)
         self.tableModel.modelReset.connect(self.tableModelChanged)
         self.statusbar.clicked.connect(self.selectCurrentTrack)
+        self.expandBtn.clicked.connect(self.expandBtnClick)
+        self.volumeSlider.valueChanged.connect(self.setVolume)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         library.selected_dir_row = index.row()
@@ -65,9 +67,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.updatePlayStatus()
 
     def updatePlayStatus(self):
-        icon = QtWidgets.QStyle.SP_MediaPlay if player.no_music() else QtWidgets.QStyle.SP_MediaPause
+        icon = QtWidgets.QStyle.SP_MediaPlay if player.isNoMusic() else QtWidgets.QStyle.SP_MediaPause
         self.playBtn.setIcon(self.style().standardIcon(icon))
-        if player.no_music():
+        if player.isNoMusic():
             self.timer.stop()
         else:
             self.timer.start()
@@ -82,7 +84,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if not player.now_playing:
             return self.play((self.tableView.selectedIndexes() or [None])[0])
 
-        player.play_pause()
+        player.playPause()
         self.updatePlayStatus()
 
     def play(self, index: QtCore.QModelIndex = None):
@@ -133,6 +135,12 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             library.rescan()
             self.treeModel.loadTreeData()
 
+    def expandBtnClick(self):
+        print(self.expandBtn.isChecked())
+        # self.treeModel.
+        # self.treeView.rootIndex().child()
+
+
     def setPos(self):
         self.timer.stop()
         pos = self.posSlider.value()
@@ -169,15 +177,26 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.rndOrderBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxQuestion))
         self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
         self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
+        self.expandBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DockWidgetCloseButton))
         self.posSlider.setMaximum(1000)
         # load Directory tree
         self.treeView.setModel(self.treeModel)
         # load Tracks
         self.tableView.setModel(self.tableModel)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        #my custom statusbar
+        # my custom statusbar
         self.statusbar.setObjectName("statusbar")
         self.setStatusBar(self.statusbar)
+        # statusbar widgets
+        self.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.volumeSlider.setMaximum(100)
+        self.volumeSlider.setValue(player.getVolume())
+        self.volumeSlider.setToolTip("Volume")
+        self.volumeSlider.setFixedWidth(100)
+        self.statusbar.addPermanentWidget(self.volumeSlider)
+
+    def setVolume(self, volume):
+        player.setVolume(volume)
 
     def tableModelBeforeChanged(self):
         for row in self.tableModel.groupRows:

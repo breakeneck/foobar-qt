@@ -317,6 +317,7 @@ class TreeModel(QtGui.QStandardItemModel):
     def __init__(self, parent=None):
         super(TreeModel, self).__init__(parent)
         self.loadTreeData()
+        self.folders = []
 
     def loadTreeData(self):
         self.clear()

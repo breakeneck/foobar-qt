@@ -21,6 +21,7 @@ class Config:
                 'selected_dir': '',
                 'selected_dir_row': -1,
                 'column_sizes': [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
+                'volume': 100
             }
 
     def load(self, app: QApplication):
@@ -31,6 +32,7 @@ class Config:
         self.w.splitter.setSizes(self.config['splitter'])
         self.w.rndOrderBtn.setChecked(self.config['rndOrder'])
         [self.w.tableView.setColumnWidth(i, width) for i, width in enumerate(self.config['column_sizes'])]
+        self.w.volumeSlider.setValue(self.config['volume'])
 
     def save(self):
         self.config['window'] = self.w.geometry().getRect()
@@ -38,6 +40,7 @@ class Config:
         self.config['rndOrder'] = self.w.rndOrderBtn.isChecked()
         self.config['theme'] = self.w.themeCombo.currentText()
         self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.tableModel.columnCount())]
+        self.config['volume'] = self.w.volumeSlider.value()
         json.dump(self.config, open('config.json', 'w'))
 
     def updateLibraryDir(self, directory):

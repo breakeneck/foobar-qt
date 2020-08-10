@@ -8,7 +8,7 @@ instance = vlc.Instance()
 mediaplayer = instance.media_player_new()
 
 
-def play_pause(track=None, pos=0):
+def playPause(track=None, pos=0):
     global paused
 
     if now_playing:
@@ -41,12 +41,20 @@ def play(index: int, track = None):
 
 
 
-def get_progress():
+def getProgress():
     return round(mediaplayer.get_position() / 1000)
 
 
-def set_progress(pos):
+def setProgress(pos):
     mediaplayer.set_position(pos)
+
+
+def setVolume(volume):
+    mediaplayer.audio_set_volume(volume)
+
+
+def getVolume():
+    return mediaplayer.audio_get_volume()
 
 
 def stop():
@@ -56,7 +64,7 @@ def stop():
     mediaplayer.stop()
 
 
-def no_music():
+def isNoMusic():
     return paused or not now_playing
 
 
