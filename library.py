@@ -9,10 +9,9 @@ TB_FOLDER = 'folder'
 TB_TRACK = 'track'
 
 # tracks = []
-root_dir = ''
+root_dir: str = ''
 selected_dir = ''
 selected_dir_row = -1
-
 
 def init(dirs):
     updateDirs(dirs)
@@ -29,13 +28,16 @@ def updateDirs(dirs):
 
 
 def rescan():
+    scanner = Scanner()
+    scanner.existing_tracks = Track.indexByPath(Track().getAllByPath(root_dir, ''))
+
     database.drop()
     database.connect()
 
     Track().create_table()
     Folder().create_table()
 
-    Scanner().process(root_dir)
+    scanner.process(root_dir)
 
 
 class Scanner2:
@@ -218,7 +220,7 @@ class Track(database.Model):
     def getAttrLabels(self):
         return [*self.__dict__.keys()]
 
-    def getAllByPath(self, path, query):
+    def getAllByPath(self, path: str, query: str):
         condition = f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ''
         # print(condition)
         condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
@@ -227,6 +229,13 @@ class Track(database.Model):
 
         database.db.execute(f'SELECT * FROM {self.tableName}' + (f' WHERE {condition}' if condition else ''))
         return map(lambda row: Track().load(row), database.db.fetchall())
+
+    @staticmethod
+    def indexByPath(tracks):
+        indexed = {}
+        for track in tracks:
+            indexed[track.full_path] = track
+        return indexed
 
     @staticmethod
     def getPlaylist(query=''):
@@ -252,6 +261,9 @@ class Track(database.Model):
 
 
 class Scanner:
+    def __init__(self):
+        self.existing_tracks: {}
+
     def process(self, dir_name):
         if dir_name == root_dir:
             self.insert_dir(dir_name)
@@ -264,7 +276,10 @@ class Scanner:
 
                 self.process(full_path)
             else:
-                self.insert_track(full_path)
+                if full_path in self.existing_tracks:
+                    self.existing_tracks[full_path].insert()
+                else:
+                    self.insert_track(full_path)
 
     @staticmethod
     def get_short_dir_name(full_path):

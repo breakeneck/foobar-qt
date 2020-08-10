@@ -1,4 +1,5 @@
 import sys
+import time
 
 from PyQt5 import QtWidgets, QtCore, QtSql, Qt
 import lyricwikia
@@ -36,7 +37,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def connectEvents(self, app):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
         self.browseDirBtn.clicked.connect(self.browseDirClick)
-        self.rescanLibBtn.clicked.connect(library.rescan)
+        self.rescanLibBtn.clicked.connect(self.rescanLibrary)
         self.playBtn.clicked.connect(self.playBtnClick)
         self.nextBtn.clicked.connect(self.next)
         self.prevBtn.clicked.connect(self.prev)
@@ -127,13 +128,19 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             print(str(e))
             self.textBrowser.setText('')
 
+    def rescanLibrary(self):
+        start_time = time.time()
+        library.rescan()
+        self.treeModel.loadTreeData()
+        print("--- Library scan is completed in %s seconds ---" % (time.time() - start_time))
+
+
     def browseDirClick(self):
         newDir = QtWidgets.QFileDialog.getExistingDirectory(self)
         if newDir:
             self.config.updateLibraryDir(newDir)
             library.updateDirs([newDir, '', -1])
-            library.rescan()
-            self.treeModel.loadTreeData()
+            self.rescanLibrary()
 
     def expandBtnClick(self):
         print(self.expandBtn.isChecked())
