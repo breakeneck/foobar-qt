@@ -148,8 +148,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         try:
             # lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
             # lyrics = PyLyrics.getLyrics(player.now_playing.artist, player.now_playing.title)
-            lyrics = self.genius.search_song(player.now_playing.title, player.now_playing.artist)
-            self.textBrowser.setText(lyrics)
+            song = self.genius.search_song(player.now_playing.title, player.now_playing.artist)
+            self.textBrowser.setText(song.lyrics)
         except Exception as e:
             print(str(e))
             self.textBrowser.setText(player.now_playing.artist + ': ' + player.now_playing.title
