@@ -21,7 +21,8 @@ class Config:
                 'selected_dir': '',
                 'selected_dir_row': -1,
                 'column_sizes': [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
-                'volume': 100
+                'volume': 100,
+                'lyrics_genius_token': ''
             }
 
     def load(self, app: QApplication):
@@ -54,3 +55,10 @@ class Config:
 
     def getLibraryDirs(self):
         return self.config['library_dir'], self.config['selected_dir'], self.config['selected_dir_row']
+
+    def getLyricsGeniusToken(self):
+        return self.config['lyrics_genius_token'] if 'lyrics_genius_token' in self.config else ''
+
+    def updateLyricsGeniusToken(self, token):
+        self.config['lyrics_genius_token'] = token
+        self.save()

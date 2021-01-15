@@ -3,19 +3,40 @@ import time
 
 from PyQt5 import QtWidgets, QtCore, QtSql, Qt
 import lyricwikia
+# from PyLyrics import *
+import lyricsgenius
 
 import config
 import design
 import library
 import player
-from dialog import Ui_Dialog as SettingsDialogUi
+from dialog import Ui_Dialog
 import qtawesome as qta
 
 
 class StatusBar(QtWidgets.QStatusBar):
     clicked = QtCore.pyqtSignal()
+
     def mousePressEvent(self, event):
         self.clicked.emit()
+
+
+class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
+    confirmed = QtCore.pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        # Run the .setupUi() method to show the GUI
+        self.setupUi(self)
+
+        self.saveConfigButton.clicked.connect(self.confirm)
+
+
+    def confirm(self):
+        self.close()
+        value = self.geniusToken.text()
+        print('entered value: %s' % value)
+        self.confirmed.emit(value)  # emit the signal, passing the text as its only argument
 
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
@@ -126,11 +147,13 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def loadLyrics(self):
         try:
             # lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
-            lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
+            # lyrics = PyLyrics.getLyrics(player.now_playing.artist, player.now_playing.title)
+            lyrics = self.genius.search_song(player.now_playing.title, player.now_playing.artist)
             self.textBrowser.setText(lyrics)
         except Exception as e:
             print(str(e))
-            self.textBrowser.setText('Lyrics server error: ' + str(e))
+            self.textBrowser.setText(player.now_playing.artist + ': ' + player.now_playing.title
+                                     + '\nLyrics server error: ' + str(e))
 
     def rescanLibrary(self):
         start_time = time.time()
@@ -207,13 +230,23 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.volumeSlider.setToolTip("Volume")
         self.volumeSlider.setFixedWidth(100)
         self.statusbar.addPermanentWidget(self.volumeSlider)
+        # Load Lyrics settings
+        self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
 
     def openSettingsDialog(self):
-        dialog = QtWidgets.QDialog()
-        dialog.ui = SettingsDialogUi()
-        dialog.ui.setupUi(dialog)
-        dialog.exec_()
-        dialog.show()
+        dialog = SettingsDialog(self)
+        dialog.confirmed.connect(self.saveSettingsFromDialog)
+        dialog.exec()
+        # dialog = QtWidgets.QDialog()
+        # dialog.ui = SettingsDialogUi()
+        # dialog.ui.setupUi(dialog)
+        # dialog.confirmed.connect(self.saveSettingsDialog)
+        # dialog.exec_()
+        # dialog.show()
+
+    def saveSettingsFromDialog(self, token):
+        print('token = ' + token)
+        self.config.updateLyricsGeniusToken(token)
 
     def setVolume(self, volume):
         player.setVolume(volume)
