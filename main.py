@@ -221,6 +221,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
 
     window = FooQt(app)  # Создаём объект класса ExampleApp
+    window.setWindowIcon(Qt.QIcon('musical-note.png'))
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
 
