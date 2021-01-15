@@ -28,6 +28,12 @@
         <property name="text">
          <string>...</string>
         </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
+        </property>
         <property name="checkable">
          <bool>false</bool>
         </property>
@@ -47,6 +53,12 @@
         <property name="text">
          <string>...</string>
         </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
+        </property>
        </widget>
       </item>
       <item>
@@ -54,12 +66,24 @@
         <property name="text">
          <string>...</string>
         </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
+        </property>
        </widget>
       </item>
       <item>
        <widget class="QToolButton" name="nextRndBtn">
         <property name="text">
          <string>...</string>
+        </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
         </property>
        </widget>
       </item>
@@ -70,6 +94,12 @@
         </property>
         <property name="text">
          <string>...</string>
+        </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
         </property>
         <property name="checkable">
          <bool>true</bool>
@@ -94,8 +124,27 @@
         <property name="text">
          <string>...</string>
         </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
+        </property>
         <property name="checkable">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QToolButton" name="settingsBtn">
+        <property name="text">
+         <string>...</string>
+        </property>
+        <property name="iconSize">
+         <size>
+          <width>34</width>
+          <height>34</height>
+         </size>
         </property>
        </widget>
       </item>
@@ -182,7 +231,7 @@
            <number>113</number>
           </attribute>
           <attribute name="verticalHeaderDefaultSectionSize">
-           <number>22</number>
+           <number>23</number>
           </attribute>
          </widget>
         </item>
@@ -208,7 +257,7 @@
      <x>0</x>
      <y>0</y>
      <width>1040</width>
-     <height>23</height>
+     <height>32</height>
     </rect>
    </property>
   </widget>

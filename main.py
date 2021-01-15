@@ -8,6 +8,8 @@ import config
 import design
 import library
 import player
+from dialog import Ui_Dialog as SettingsDialogUi
+import qtawesome as qta
 
 
 class StatusBar(QtWidgets.QStatusBar):
@@ -38,6 +40,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(self.rescanLibrary)
+        self.settingsBtn.clicked.connect(self.openSettingsDialog)
         self.playBtn.clicked.connect(self.playBtnClick)
         self.nextBtn.clicked.connect(self.next)
         self.prevBtn.clicked.connect(self.prev)
@@ -122,11 +125,12 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def loadLyrics(self):
         try:
+            # lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
             lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
             self.textBrowser.setText(lyrics)
         except Exception as e:
             print(str(e))
-            self.textBrowser.setText('')
+            self.textBrowser.setText('Lyrics server error: ' + str(e))
 
     def rescanLibrary(self):
         start_time = time.time()
@@ -176,15 +180,17 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.timer.setInterval(100)
         # design updates
         self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
-        self.playBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
-        self.nextBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
-        self.prevBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
-        self.nextRndBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogHelpButton))
-        self.stopAfterBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaStop))
-        self.rndOrderBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxQuestion))
-        self.browseDirBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton))
-        self.rescanLibBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_BrowserReload))
-        self.expandBtn.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_DockWidgetCloseButton))
+        self.playBtn.setIcon(qta.icon('fa.play'))
+        self.nextBtn.setIcon(qta.icon('mdi.skip-next'))
+        self.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
+        self.nextRndBtn.setIcon(qta.icon('fa.question'))
+        self.stopAfterBtn.setIcon(qta.icon('fa.stop-circle'))
+        self.rndOrderBtn.setIcon(qta.icon('fa.random'))
+        self.browseDirBtn.setIcon(qta.icon('fa.folder-open'))
+        self.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
+        self.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
+        self.settingsBtn.setIcon(qta.icon('fa.cog'))
+
         self.posSlider.setMaximum(1000)
         # load Directory tree
         self.treeView.setModel(self.treeModel)
@@ -201,6 +207,13 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.volumeSlider.setToolTip("Volume")
         self.volumeSlider.setFixedWidth(100)
         self.statusbar.addPermanentWidget(self.volumeSlider)
+
+    def openSettingsDialog(self):
+        dialog = QtWidgets.QDialog()
+        dialog.ui = SettingsDialogUi()
+        dialog.ui.setupUi(dialog)
+        dialog.exec_()
+        dialog.show()
 
     def setVolume(self, volume):
         player.setVolume(volume)
