@@ -2,14 +2,12 @@ import sys
 import time
 
 from PyQt5 import QtWidgets, QtCore, QtSql, Qt
-import lyricwikia
-# from PyLyrics import *
-import lyricsgenius
 
 import config
 import design
 import library
 import player
+from lyrics import Lyrics
 from dialog import Ui_Dialog
 import qtawesome as qta
 
@@ -47,6 +45,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # config loading
         self.config = config.Config(self)
         library.init(self.config.getLibraryDirs())
+        self.lyrics = Lyrics(self.config)
 
         # make post ui setup after library is initialized
         self.postSetupUi()
@@ -59,6 +58,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def connectEvents(self, app):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
+        self.lyricsCombo.activated.connect(lambda: self.lyrics.setProvider(self.lyricsCombo.currentText()))
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(self.rescanLibrary)
         self.settingsBtn.clicked.connect(self.openSettingsDialog)
@@ -92,8 +92,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.updatePlayStatus()
 
     def updatePlayStatus(self):
-        icon = QtWidgets.QStyle.SP_MediaPlay if player.isNoMusic() else QtWidgets.QStyle.SP_MediaPause
-        self.playBtn.setIcon(self.style().standardIcon(icon))
+        icon = qta.icon('fa.play') if player.isNoMusic() else qta.icon('fa.pause')
+        self.playBtn.setIcon(icon)
         if player.isNoMusic():
             self.timer.stop()
         else:
@@ -120,7 +120,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
-            self.loadLyrics()
+            self.lyricsTxt.setText(self.lyrics.find())
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()
@@ -143,17 +143,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         else:
             self.stop()
 
-
-    def loadLyrics(self):
-        try:
-            # lyrics = lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title)
-            # lyrics = PyLyrics.getLyrics(player.now_playing.artist, player.now_playing.title)
-            song = self.genius.search_song(player.now_playing.title, player.now_playing.artist)
-            self.textBrowser.setText(song.lyrics)
-        except Exception as e:
-            print(str(e))
-            self.textBrowser.setText(player.now_playing.artist + ': ' + player.now_playing.title
-                                     + '\nLyrics server error: ' + str(e))
 
     def rescanLibrary(self):
         start_time = time.time()
@@ -203,6 +192,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.timer.setInterval(100)
         # design updates
         self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
+        self.lyricsCombo.addItems(self.lyrics.PROVIDERS)
         self.playBtn.setIcon(qta.icon('fa.play'))
         self.nextBtn.setIcon(qta.icon('mdi.skip-next'))
         self.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
@@ -230,8 +220,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.volumeSlider.setToolTip("Volume")
         self.volumeSlider.setFixedWidth(100)
         self.statusbar.addPermanentWidget(self.volumeSlider)
-        # Load Lyrics settings
-        self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
 
     def openSettingsDialog(self):
         dialog = SettingsDialog(self)
@@ -242,6 +230,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def saveSettingsFromDialog(self, token):
         print('token = ' + token)
         self.config.updateLyricsGeniusToken(token)
+        self.lyrics.onChangeTokens()
 
     def setVolume(self, volume):
         player.setVolume(volume)
@@ -257,6 +246,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def closeEvent(self, event):
         self.config.save()
         event.accept()
+
 
 def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication

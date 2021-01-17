@@ -240,7 +240,7 @@
       <widget class="QWidget" name="verticalLayoutWidget_3">
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
-         <widget class="QTextBrowser" name="textBrowser"/>
+         <widget class="QTextBrowser" name="lyricsTxt"/>
         </item>
         <item>
          <widget class="QComboBox" name="lyricsCombo"/>

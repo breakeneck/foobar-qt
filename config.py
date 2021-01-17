@@ -22,13 +22,15 @@ class Config:
                 'selected_dir_row': -1,
                 'column_sizes': [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
                 'volume': 100,
-                'lyrics_genius_token': ''
+                'lyrics_genius_token': '',
+                'lyrics_provider': ''
             }
 
     def load(self, app: QApplication):
         print(self.config)
         app.setStyle(self.config['theme'])
         self.w.themeCombo.setCurrentIndex(self.w.themeCombo.findText(self.config['theme']))
+        self.w.lyricsCombo.setCurrentIndex(self.w.lyricsCombo.findText(self.config['lyrics_provider']))
         self.w.setGeometry(QRect(*self.config['window']))
         self.w.splitter.setSizes(self.config['splitter'])
         self.w.rndOrderBtn.setChecked(self.config['rndOrder'])
@@ -40,6 +42,7 @@ class Config:
         self.config['splitter'] = self.w.splitter.sizes()
         self.config['rndOrder'] = self.w.rndOrderBtn.isChecked()
         self.config['theme'] = self.w.themeCombo.currentText()
+        self.config['lyrics_provider'] = self.w.lyricsCombo.currentText()
         self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.tableModel.columnCount())]
         self.config['volume'] = self.w.volumeSlider.value()
         json.dump(self.config, open('config.json', 'w'))
@@ -62,3 +65,6 @@ class Config:
     def updateLyricsGeniusToken(self, token):
         self.config['lyrics_genius_token'] = token
         self.save()
+
+    def getLyricsProvider(self):
+        return self.config['lyrics_provider']

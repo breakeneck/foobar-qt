@@ -19,6 +19,7 @@ def playPause(track=None, pos=0):
         paused = not paused
     return not paused
 
+
 def play(index: int, track = None):
     global paused, now_playing, now_playing_row
 

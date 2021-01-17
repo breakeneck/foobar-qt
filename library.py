@@ -8,10 +8,10 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 TB_FOLDER = 'folder'
 TB_TRACK = 'track'
 
-# tracks = []
 root_dir: str = ''
 selected_dir = ''
 selected_dir_row = -1
+
 
 def init(dirs):
     updateDirs(dirs)
@@ -37,134 +37,7 @@ def rescan():
     Track().create_table()
     Folder().create_table()
 
-    scanner.process(root_dir)
-
-
-class Scanner2:
-    def process(self, dir_name):
-        if dir_name == root_dir:
-            Folder2.getByPath(dir_name).insert()
-
-        files = os.listdir(dir_name)
-        for f in files:
-            full_path = os.path.join(dir_name, f)
-            if os.path.isdir(full_path):
-                Folder2.getByPath(full_path).insert()
-
-                self.process(full_path)
-            else:
-                Track2.getByPath(full_path).insert()
-
-
-class Folder2(database.Model):
-    def __init__(self):
-        self.id = 0
-        self.path = ''
-
-    @property
-    def tableName(self):
-        return TB_FOLDER + '2'
-
-    @property
-    def indexedAttrs(self):
-        return ['path']
-
-    @property
-    def relPath(self):
-        return self.path[len(root_dir)]
-
-    @property
-    def groupPath(self):
-        level = self.path.count(os.sep) - root_dir.count(os.sep)
-        if level == 0:
-            return os.sep
-        elif level == 1:
-            return os.sep + self.path.split(os.sep)[-1]
-        else:
-            return os.sep + os.sep.join(self.path.split(os.sep)[-2:])
-
-    def all(self):
-        database.db.execute(f'SELECT * FROM {self.tableName} ORDER BY path')
-        return map(lambda row: Folder().load(row), database.db.fetchall())
-
-    @classmethod
-    def getByPath(cls, path):
-        folder = cls()
-        folder.path = path
-        return folder
-
-
-class Track2(database.Model):
-    def __init__(self):
-        self.id = 0
-        self.artist = ''
-        self.title = ''
-        self.album = ''
-        self.year = 0
-        self.track_num = 0
-        self.basename = ''
-        self.path = ''
-
-    @property
-    def tableName(self):
-        return TB_TRACK + '2'
-
-    @property
-    def indexedAttrs(self):
-        return ['artist', 'title', 'path']
-
-    def colNameByNum(self):
-        return enumerate(self.__dict__)
-
-    @classmethod
-    def getByPath(cls, path):
-        track = cls()
-
-        track.full_path = path
-        track.basename = os.path.basename(path)
-
-        try:
-            file = eyed3.load(path)
-            track.duration = file.info.time_secs
-            if not track.duration:
-                return
-        except:
-            return
-
-        try:
-            track.artist = file.tag.artist
-            track.title = file.tag.title
-            track.album = file.tag.album
-        except:
-            print('Tag error for file', path)
-
-        if not track.artist and not track.title:
-            track.title = track.basename
-
-        return track
-
-    def all(self, path, query):
-        condition = f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ''
-        condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
-        condition += ' ORDER BY full_path'
-
-        database.db.execute(f'SELECT * FROM {self.tableName}' + (f' WHERE {condition}' if condition else ''))
-        return map(lambda row: Track().load(row), database.db.fetchall())
-
-    @staticmethod
-    def getPlaylist(query=''):
-        playlist = []
-
-        current_dir = ''
-        for track in Track2().all(selected_dir if selected_dir else root_dir, query):
-            if os.path.dirname(track.path) != current_dir:
-                current_dir = os.path.dirname(track.path)
-
-                playlist.append(current_dir)
-
-            playlist.append(track)
-
-        return playlist
+    scanner.parse(root_dir)
 
 
 class Folder(database.Model):
@@ -222,9 +95,7 @@ class Track(database.Model):
 
     def getAllByPath(self, path: str, query: str):
         condition = f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ''
-        # print(condition)
         condition += (' AND ' if condition else '') + (f'(dir_name LIKE "{path}%")' if path else '')
-        # print(condition)
         condition += ' ORDER BY full_path'
 
         database.db.execute(f'SELECT * FROM {self.tableName}' + (f' WHERE {condition}' if condition else ''))
@@ -261,10 +132,9 @@ class Track(database.Model):
 
 
 class Scanner:
-    def __init__(self):
-        self.existing_tracks: {}
+    existing_tracks: {}
 
-    def process(self, dir_name):
+    def parse(self, dir_name):
         if dir_name == root_dir:
             self.insert_dir(dir_name)
 
@@ -274,7 +144,7 @@ class Scanner:
             if os.path.isdir(full_path):
                 self.insert_dir(full_path)
 
-                self.process(full_path)
+                self.parse(full_path)
             else:
                 if full_path in self.existing_tracks:
                     self.existing_tracks[full_path].insert()
