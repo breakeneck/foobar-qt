@@ -236,13 +236,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def openSettingsDialog(self):
         dialog = SettingsDialog(self)
         dialog.confirmed.connect(self.saveSettingsFromDialog)
+        dialog.geniusToken.setText(self.config.getLyricsGeniusToken())
         dialog.exec()
-        # dialog = QtWidgets.QDialog()
-        # dialog.ui = SettingsDialogUi()
-        # dialog.ui.setupUi(dialog)
-        # dialog.confirmed.connect(self.saveSettingsDialog)
-        # dialog.exec_()
-        # dialog.show()
 
     def saveSettingsFromDialog(self, token):
         print('token = ' + token)
