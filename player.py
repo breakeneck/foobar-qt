@@ -1,4 +1,5 @@
 import library
+
 import vlc
 
 paused = False
@@ -20,7 +21,7 @@ def playPause(track=None, pos=0):
     return not paused
 
 
-def play(index: int, track = None):
+def play(index: int, track=None):
     global paused, now_playing, now_playing_row
 
     try:
@@ -39,7 +40,6 @@ def play(index: int, track = None):
     mediaplayer.play()
 
     return track
-
 
 
 def getProgress():

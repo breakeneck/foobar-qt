@@ -26,7 +26,7 @@ class Config:
                 'lyrics_provider': ''
             }
 
-    def load(self, app: QApplication):
+    def updateUiSizes(self, app: QApplication):
         print(self.config)
         app.setStyle(self.config['theme'])
         self.w.themeCombo.setCurrentIndex(self.w.themeCombo.findText(self.config['theme']))
