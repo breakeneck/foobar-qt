@@ -2,7 +2,6 @@ import sys
 import time
 
 from PyQt5 import QtWidgets, QtCore, Qt
-import qtawesome as qta
 
 import config
 import design
@@ -23,11 +22,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         # run postSetupUI after library is initialized (Why??)
         from main_ui_setup import MainUiSetup
-        mainUiSetup = MainUiSetup()
-        mainUiSetup.tune(self)
-        mainUiSetup.connectEvents(self, app)
-        mainUiSetup.loadUiState(self, app)
-        mainUiSetup.initPlaylist(self)
+        self.uiSetup = MainUiSetup()
+        self.uiSetup.tune(self)
+        self.uiSetup.connectEvents(self, app)
+        self.uiSetup.loadUiState(self, app)
+        self.uiSetup.initPlaylist(self)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         library.selected_dir_row = index.row()
@@ -43,7 +42,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.updatePlayStatus()
 
     def updatePlayStatus(self):
-        icon = qta.icon('fa.play') if player.isNoMusic() else qta.icon('fa.pause')
+        icon = self.uiSetup.getPlayIcon() if player.isNoMusic() else self.uiSetup.getPauseIcon()
         self.playBtn.setIcon(icon)
         if player.isNoMusic():
             self.timer.stop()

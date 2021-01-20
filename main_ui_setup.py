@@ -51,6 +51,14 @@ class MainUiSetup:
         main.settingsBtn.setIcon(qta.icon('fa.cog'))
 
     @staticmethod
+    def getPlayIcon():
+        return qta.icon('fa.play')
+
+    @staticmethod
+    def getPauseIcon():
+        return qta.icon('fa.pause')
+
+    @staticmethod
     def _setStatusBar(main: FooQt):
         main.statusbar.setObjectName("statusbar")
         main.setStatusBar(main.statusbar)
