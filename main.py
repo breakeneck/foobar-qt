@@ -8,7 +8,7 @@ import design
 import library
 import player
 from lyrics import Lyrics
-from pyqt_custom import SettingsDialog
+from custom_widgets import SettingsDialog
 
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
@@ -18,7 +18,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         self.config = config.Config(self)
         library.init(self.config.getLibraryDirs())
-        self.lyrics = Lyrics(self.config)
 
         # run postSetupUI after library is initialized (Why??)
         from main_ui_setup import MainUiSetup
@@ -27,6 +26,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.uiSetup.connectEvents(self, app)
         self.uiSetup.loadUiState(self, app)
         self.uiSetup.initPlaylist(self)
+
+        self.threadpool = QtCore.QThreadPool()
+        self.threadpool.setMaxThreadCount(1)
+        self.lyrics = Lyrics(self.config, self.lyricsTxt)
+        self.lyrics.found.connect(self.showLyrics)
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         library.selected_dir_row = index.row()
@@ -70,7 +74,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
-            self.lyricsTxt.setText(self.lyrics.find())
+            self.threadpool.start(self.lyrics)
+            # self.lyricsTxt.setText(self.lyrics.find())
+
+    def showLyrics(self, text):
+        self.lyricsTxt.setText(text)
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()

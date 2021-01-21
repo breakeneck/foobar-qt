@@ -1,7 +1,7 @@
 from PyQt5 import QtWidgets, QtCore, QtSql, Qt
 
 from main import FooQt
-from pyqt_custom import StatusBar
+from custom_widgets import StatusBar
 import library
 import player
 from config import Config
@@ -30,7 +30,7 @@ class MainUiSetup:
     @staticmethod
     def _fillComboBoxes(main: FooQt):
         main.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
-        main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
+        # main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
 
     @staticmethod
     def _setupSlider(main: FooQt):

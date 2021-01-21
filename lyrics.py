@@ -1,3 +1,5 @@
+from PyQt5 import QtCore
+
 import lyricwikia
 from PyLyrics import *
 import lyricsgenius
@@ -5,7 +7,7 @@ import lyricsgenius
 import player
 
 
-class Lyrics:
+class Lyrics(QtCore.QRunnable):
     PROVIDER_GENIUS = 'Genius.com'
     PROVIDER_LYRICSWIKIA = 'LyricsWikia'
     PROVIDER_PYLYRICS = 'PyLyrics'
@@ -19,10 +21,17 @@ class Lyrics:
     genius: lyricsgenius.Genius
     config: None
 
-    def __init__(self, config):
+    found = QtCore.pyqtSignal(str)
+
+
+    def __init__(self, config, lyricsTxt):
+        super().__init__()
+
         self.config = config
         self.initProviders()
         self.setProvider(self.DEFAULT_PROVIDER if config.getLyricsProvider() == '' else config.getLyricsProvider())
+
+        self.lyricsTxt = lyricsTxt
 
 
     def initProviders(self):
@@ -50,4 +59,11 @@ class Lyrics:
 
     def onChangeTokens(self):
         self.initProviders()
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        result = self.find()
+        print(result)
+        self.found.emit(result)
+        # return self.lyricsTxt.setText(result)
 
