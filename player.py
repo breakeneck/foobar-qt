@@ -1,5 +1,6 @@
 import library
 import vlc
+from operating_system import LinuxStandbyLock
 
 paused = False
 now_playing_row: -1
@@ -8,14 +9,24 @@ instance = vlc.Instance()
 mediaplayer = instance.media_player_new()
 
 
+def onPlayStart():
+    LinuxStandbyLock.inhibit()
+
+
+def onPlayEnd():
+    LinuxStandbyLock.release()
+
+
 def playPause(track=None, pos=0):
     global paused
 
     if now_playing:
         if paused:
             mediaplayer.play()
+            onPlayStart()
         else:
             mediaplayer.pause()
+            onPlayEnd()
         paused = not paused
     return not paused
 
@@ -37,6 +48,7 @@ def play(index: int, track = None):
     now_playing = track
     now_playing_row = index
     mediaplayer.play()
+    onPlayStart()
 
     return track
 
@@ -63,6 +75,7 @@ def stop():
     paused = False
     now_playing = None
     mediaplayer.stop()
+    onPlayEnd()
 
 
 def isNoMusic():
