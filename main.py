@@ -201,12 +201,12 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             return None
 
     def skipTrack(self):
-        index = self.getSelectedIndex()
-        track = self.tableModel.tracks[index]
-        if track:
-            track.skipped = 0 if track.skipped else 1
-            track.updateAttr('skipped')
-            self.tableModel.tracks[index] = track
+        for index in list(set([i.row() for i in self.tableView.selectedIndexes()])):
+            track = self.tableModel.tracks[index]
+            if isinstance(track, library.Track):
+                track.skipped = 0 if track.skipped else 1
+                track.updateAttr('skipped')
+                self.tableModel.tracks[index] = track
             # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
 
 
