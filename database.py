@@ -115,8 +115,7 @@ class Model:
         connection.commit()
 
     def updateAttr(self, attr):
-        print(f'UPDATE {self.tableName} SET {attr} = {self.__dict__[attr]} WHERE id = {self.__dict__[self.pk]}')
-        db.execute(f'UPDATE {self.tableName} SET {attr} = {self.__dict__[attr]} WHERE id = {self.__dict__[self.pk]}')
+        db.execute(f'UPDATE {self.tableName} SET {attr} = ? WHERE id = {self.__dict__[self.pk]}', [self.__dict__[attr]])
         connection.commit()
 
     def load(self, values):

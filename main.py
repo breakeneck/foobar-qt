@@ -207,7 +207,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             track.skipped = 0 if track.skipped else 1
             track.updateAttr('skipped')
             self.tableModel.tracks[index] = track
-            QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
+            # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
 
 
     def postSetupUi(self):
