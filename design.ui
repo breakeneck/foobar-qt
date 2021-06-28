@@ -205,7 +205,21 @@
       <widget class="QWidget" name="verticalLayoutWidget_2">
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item>
-         <widget class="QLineEdit" name="searchEdit"/>
+         <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="topMargin">
+           <number>0</number>
+          </property>
+          <item>
+           <widget class="QLineEdit" name="searchEdit"/>
+          </item>
+          <item>
+           <widget class="QToolButton" name="searchClearBtn">
+            <property name="text">
+             <string>X</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QTableView" name="tableView">
@@ -257,7 +271,7 @@
      <x>0</x>
      <y>0</y>
      <width>1040</width>
-     <height>32</height>
+     <height>25</height>
     </rect>
    </property>
   </widget>

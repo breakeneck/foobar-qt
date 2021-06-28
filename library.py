@@ -74,10 +74,11 @@ class Track(database.Model):
         self.dir_name = ''
         self.base_dir_name = ''
         self.duration = 0
+        self.skipped = 0
 
     @staticmethod
     def colCount():
-        return 11
+        return 12
 
     @property
     def indexedAttrs(self):
@@ -86,6 +87,9 @@ class Track(database.Model):
     @property
     def tableName(self):
         return TB_TRACK
+
+    def getTitle(self):
+        return self.artist + ' - ' + self.title
 
     def getAttrValues(self):
         return tuple(self.__dict__.values())
@@ -250,10 +254,15 @@ class TableModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
     def data(self, index, role=None):
-        if role == QtCore.Qt.FontRole and index.row() in self.groupRows:
-            font = QtGui.QFont()
-            font.setBold(True)
-            return font
+        if role == QtCore.Qt.FontRole:
+            if index.row() in self.groupRows:
+                font = QtGui.QFont()
+                font.setBold(True)
+                return font
+            elif self.tracks[index.row()].skipped:
+                font = QtGui.QFont()
+                font.setStrikeOut(True)
+                return font
         # } else if (role == Qt::ForegroundRole & & index.column() == 0) {
         # return QColor(Qt::red);
         # }
@@ -288,24 +297,15 @@ class TableModel(QtCore.QAbstractTableModel):
         player.now_playing_row = -1
         return False
 
-
     def getNextIndex(self):
-        self.getNowPlayIndex()  # Refresh player.now_playing_row
-        if not self.getNextRow():
-            return False
-
-        while not isinstance(self.tracks[player.now_playing_row], Track):
-            if not self.getNextRow():
-                return False
-
-        return self.index(player.now_playing_row, 0)
-
-    def getNextRow(self):
-        if player.now_playing_row < len(self.tracks) - 1:
+        while player.now_playing_row < len(self.tracks):
             player.now_playing_row += 1
-            return True
-        else:
-            return False
+
+            item = self.tracks[player.now_playing_row]
+            if isinstance(item, Track) and not item.skipped:
+                return self.index(player.now_playing_row, 0)
+
+        return False
 
     def getPrevIndex(self):
         self.getNowPlayIndex()  # Refresh player.now_playing_row

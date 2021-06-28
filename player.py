@@ -10,11 +10,13 @@ mediaplayer = instance.media_player_new()
 
 
 def onPlayStart():
-    LinuxStandbyLock.inhibit()
+    pass
+    # LinuxStandbyLock.inhibit()
 
 
 def onPlayEnd():
-    LinuxStandbyLock.release()
+    pass
+    # LinuxStandbyLock.release()
 
 
 def playPause(track=None, pos=0):

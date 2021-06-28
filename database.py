@@ -23,7 +23,6 @@ def connect():
     except sqlite3.Error as e:
         print(e)
 
-
 def drop():
     if os.path.exists(DB_NAME):
         os.remove(DB_NAME)
@@ -81,7 +80,7 @@ class Model:
         attributes_list = []
         values = []
         for attr in self.__dict__:
-            if attr == 'id':
+            if attr == self.pk:
                 continue
             attributes_list.append(attr)
             values.append(self.__dict__[attr])
@@ -96,6 +95,29 @@ class Model:
             print('Insert error: ' + str(e) + ' Attributes: ' + str(self.__dict__))
 
         return db.lastrowid
+
+    def update(self):
+        attributes_list = []
+        values = []
+        for attr in self.__dict__:
+            if attr == self.pk:
+                continue
+            attributes_list.append(attr + ' = ?')
+            values.append(self.__dict__[attr])
+        attributes = ','.join(attributes_list)
+
+        print(f'UPDATE {self.tableName} SET {attributes} WHERE id = {self.__dict__[self.pk]}')
+        print(values)
+
+        if not db:
+            connect()
+        db.execute(f'UPDATE {self.tableName} SET {attributes} WHERE id = {self.__dict__[self.pk]}', values)
+        connection.commit()
+
+    def updateAttr(self, attr):
+        print(f'UPDATE {self.tableName} SET {attr} = {self.__dict__[attr]} WHERE id = {self.__dict__[self.pk]}')
+        db.execute(f'UPDATE {self.tableName} SET {attr} = {self.__dict__[attr]} WHERE id = {self.__dict__[self.pk]}')
+        connection.commit()
 
     def load(self, values):
         for n, attr in enumerate(self.__dict__):

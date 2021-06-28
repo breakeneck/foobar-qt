@@ -1,7 +1,7 @@
 import sys
 import time
 
-from PyQt5 import QtWidgets, QtCore, QtSql, Qt
+from PyQt5 import QtWidgets, QtCore, Qt, QtGui
 
 import config
 import design
@@ -67,6 +67,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.prevBtn.clicked.connect(self.prev)
         self.nextRndBtn.clicked.connect(self.nextRnd)
         self.searchEdit.textChanged.connect(self.searchChanged)
+        # self.searchEdit.keyPressEvent.connect(self.searchEditKeyPress)
+        self.searchClearBtn.clicked.connect(self.searchClear)
         self.treeView.clicked.connect(self.treeViewClick)
         self.tableView.doubleClicked.connect(self.play)
         self.posSlider.sliderMoved.connect(self.setPos)
@@ -84,8 +86,16 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config.updateSelectedDir(library.selected_dir, library.selected_dir_row)
         self.searchChanged()
 
+    def keyPressEvent(self, e):
+        if e.key() == QtCore.Qt.Key_Escape:
+            self.searchClear()
+        pass
+
     def searchChanged(self):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
+
+    def searchClear(self):
+        self.searchEdit.setText('')
 
     def stop(self):
         player.stop()
@@ -120,7 +130,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
-            self.lyricsTxt.setText(self.lyrics.find())
+            # self.lyricsTxt.setText(self.lyrics.find())
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()
@@ -157,6 +167,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.config.updateLibraryDir(newDir)
             library.updateDirs([newDir, '', -1])
             self.rescanLibrary()
+            self.config.save()
 
     def expandBtnClick(self):
         print(self.expandBtn.isChecked())
@@ -182,12 +193,30 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             else:
                 self.nextRnd() if self.rndOrderBtn.isChecked() else self.next()
 
+    def getSelectedIndex(self):
+        selectedIndex = self.tableView.selectedIndexes()
+        if selectedIndex:
+            return selectedIndex[0].row()
+        else:
+            return None
+
+    def skipTrack(self):
+        index = self.getSelectedIndex()
+        track = self.tableModel.tracks[index]
+        if track:
+            track.skipped = 0 if track.skipped else 1
+            track.updateAttr('skipped')
+            self.tableModel.tracks[index] = track
+            QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
+
+
     def postSetupUi(self):
         # add invisible elements
         self.timer = QtCore.QTimer(self)
         self.treeModel = library.TreeModel()
         self.tableModel = library.TableModel()
         self.statusbar = StatusBar()
+        self.skipShortcut = QtWidgets.QShortcut(QtGui.QKeySequence('Ctrl+S'), self)
         # update qtDesigner non available properties
         self.timer.setInterval(100)
         # design updates
@@ -204,6 +233,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
         self.settingsBtn.setIcon(qta.icon('fa.cog'))
 
+        # self.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(self, 'Message', 'Track "' + self.getSelectedTrack().getTitle() + '" will be skipped')))
+        self.skipShortcut.activated.connect(self.skipTrack)
         self.posSlider.setMaximum(1000)
         # load Directory tree
         self.treeView.setModel(self.treeModel)
