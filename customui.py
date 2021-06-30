@@ -105,6 +105,9 @@ class TableModel(QtCore.QAbstractTableModel):
         self.modelReset.emit()
 
     def getNowPlayIndex(self):
+        if not self.player.now_playing:
+            return False
+
         trackId = self.player.now_playing.id
         for row, track in enumerate(self.tracks):
             if isinstance(track, Track) and track.id == trackId:

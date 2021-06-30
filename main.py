@@ -6,29 +6,12 @@ from PyQt5.QtWidgets import QShortcut
 
 import config
 import design
+import customui
+from dialogs import SettingsDialog
 from library import Library, Track
 from player import Player
 from lyrics import Lyrics
-from dialog import Ui_Dialog
 import qtawesome as qta
-import customui
-
-
-class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
-    confirmed = QtCore.pyqtSignal(str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        # Run the .setupUi() method to show the GUI
-        self.setupUi(self)
-
-        self.saveConfigButton.clicked.connect(self.confirm)
-
-    def confirm(self):
-        self.close()
-        value = self.geniusToken.text()
-        print('entered value: %s' % value)
-        self.confirmed.emit(value)  # emit the signal, passing the text as its only argument
 
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
