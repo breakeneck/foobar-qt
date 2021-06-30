@@ -11,6 +11,7 @@ from dialogs import SettingsDialog
 from library import Library, Track
 from player import Player
 from lyrics import Lyrics
+
 import qtawesome as qta
 
 
@@ -26,7 +27,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.lyrics = Lyrics(self.config)
 
         # make post ui setup after library is initialized
-        self.postSetupUi()
+        customui.postSetup(self)
 
         # Load config goes after postSetupUi() to be able to restore columns width
         self.config.load(app)
@@ -195,50 +196,50 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel.refreshPlaylist()
         # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
 
-    def postSetupUi(self):
-        # add invisible elements
-        self.timer = QtCore.QTimer(self)
-        self.treeModel = customui.TreeModel(self)
-        self.treeModel.setLibrary(self.library)
-        self.tableModel = customui.TableModel()
-        self.tableModel.setLibrary(self.library)
-        self.tableModel.setPlayer(self.player)
-        self.statusbar = customui.StatusBar()
-        # update qtDesigner non available properties
-        self.timer.setInterval(100)
-        # design updates
-        self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
-        self.lyricsCombo.addItems(self.lyrics.PROVIDERS)
-        self.playBtn.setIcon(qta.icon('fa.play'))
-        self.nextBtn.setIcon(qta.icon('mdi.skip-next'))
-        self.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
-        self.nextRndBtn.setIcon(qta.icon('fa.question'))
-        self.stopAfterBtn.setIcon(qta.icon('fa.stop-circle'))
-        self.rndOrderBtn.setIcon(qta.icon('fa.random'))
-        self.browseDirBtn.setIcon(qta.icon('fa.folder-open'))
-        self.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
-        self.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
-        self.settingsBtn.setIcon(qta.icon('fa.cog'))
-
-        # self.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(self, 'Message', 'Track "' + self.getSelectedTrack().getTitle() + '" will be skipped')))
-        self.posSlider.setMaximum(1000)
-        # load Directory tree
-        self.treeView.setModel(self.treeModel)
-        # load Tracks
-        self.tableView.setModel(self.tableModel)
-        self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        # my custom statusbar
-        self.statusbar.setObjectName("statusbar")
-        self.setStatusBar(self.statusbar)
-        # statusbar widgets
-        self.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.volumeSlider.setMaximum(100)
-        self.volumeSlider.setValue(self.player.getVolume())
-        self.volumeSlider.setToolTip("Volume")
-        self.volumeSlider.setFixedWidth(100)
-        self.statusbar.addPermanentWidget(self.volumeSlider)
-        # search edit params
-        self.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
+    # def postSetupUi(self):
+    #     # add invisible elements
+    #     self.timer = QtCore.QTimer(self)
+    #     self.treeModel = customui.TreeModel(self)
+    #     self.treeModel.setLibrary(self.library)
+    #     self.tableModel = customui.TableModel()
+    #     self.tableModel.setLibrary(self.library)
+    #     self.tableModel.setPlayer(self.player)
+    #     self.statusbar = customui.StatusBar()
+    #     # update qtDesigner non available properties
+    #     self.timer.setInterval(100)
+    #     # design updates
+    #     self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
+    #     self.lyricsCombo.addItems(self.lyrics.PROVIDERS)
+    #     self.playBtn.setIcon(qta.icon('fa.play'))
+    #     self.nextBtn.setIcon(qta.icon('mdi.skip-next'))
+    #     self.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
+    #     self.nextRndBtn.setIcon(qta.icon('fa.question'))
+    #     self.stopAfterBtn.setIcon(qta.icon('fa.stop-circle'))
+    #     self.rndOrderBtn.setIcon(qta.icon('fa.random'))
+    #     self.browseDirBtn.setIcon(qta.icon('fa.folder-open'))
+    #     self.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
+    #     self.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
+    #     self.settingsBtn.setIcon(qta.icon('fa.cog'))
+    #
+    #     # self.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(self, 'Message', 'Track "' + self.getSelectedTrack().getTitle() + '" will be skipped')))
+    #     self.posSlider.setMaximum(1000)
+    #     # load Directory tree
+    #     self.treeView.setModel(self.treeModel)
+    #     # load Tracks
+    #     self.tableView.setModel(self.tableModel)
+    #     self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+    #     # my custom statusbar
+    #     self.statusbar.setObjectName("statusbar")
+    #     self.setStatusBar(self.statusbar)
+    #     # statusbar widgets
+    #     self.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+    #     self.volumeSlider.setMaximum(100)
+    #     self.volumeSlider.setValue(self.player.getVolume())
+    #     self.volumeSlider.setToolTip("Volume")
+    #     self.volumeSlider.setFixedWidth(100)
+    #     self.statusbar.addPermanentWidget(self.volumeSlider)
+    #     # search edit params
+    #     self.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
 
     def openSettingsDialog(self):
         dialog = SettingsDialog(self)

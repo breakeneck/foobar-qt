@@ -35,41 +35,6 @@ class Library:
         self.scanner.parse(self.root_dir)
 
 
-# TB_FOLDER = 'folder'
-# TB_TRACK = 'track'
-#
-# root_dir: str = ''
-# selected_dir = ''
-# selected_dir_row = -1
-#
-#
-# def init(dirs):
-#     updateDirs(dirs)
-#     # init database
-#     is_db_exists = database.connect()
-#     if not is_db_exists:
-#         Track().create_table()
-#         Folder().create_table()
-#
-#
-# def updateDirs(dirs):
-#     global root_dir, selected_dir, selected_dir_row
-#     root_dir, selected_dir, selected_dir_row = dirs
-#
-#
-# def rescan():
-#     scanner = Scanner()
-#     scanner.existing_tracks = Track.indexByPath(Track().getAllByPath(root_dir, ''))
-#
-#     database.drop()
-#     database.connect()
-#
-#     Track().create_table()
-#     Folder().create_table()
-#
-#     scanner.parse(root_dir)
-
-
 class Folder(database.Model):
     def __init__(self):
         self.id = 0

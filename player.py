@@ -76,10 +76,10 @@ class Player:
         self.onPlayEnd()
 
     def isNoMusic(self):
-        return paused or not self.now_playing
+        return self.paused or not self.now_playing
 
     def getNowPlayingMsg(self):
-        if isinstance(self.now_playing, library.Track):
-            return f'{"Paused: " if paused else "Playing: "}{self.now_playing.artist} - {self.now_playing.title} [{self.now_playing.album}]'
+        if isinstance(self.now_playing, Track):
+            return f'{"Paused: " if self.paused else "Playing: "}{self.now_playing.artist} - {self.now_playing.title} [{self.now_playing.album}]'
         else:
             return 'Play stopped'

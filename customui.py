@@ -3,6 +3,53 @@ from player import Player
 from library import Library, Folder, Track
 from random import randint
 from PyQt5 import QtGui, QtCore, QtWidgets
+import qtawesome as qta
+
+
+def postSetup(main):
+    # add invisible elements
+    main.timer = QtCore.QTimer(main)
+    main.treeModel = TreeModel(main)
+    main.treeModel.setLibrary(main.library)
+    main.tableModel = TableModel()
+    main.tableModel.setLibrary(main.library)
+    main.tableModel.setPlayer(main.player)
+    main.statusbar = StatusBar()
+    # update qtDesigner non available properties
+    main.timer.setInterval(100)
+    # design updates
+    main.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
+    main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
+    main.playBtn.setIcon(qta.icon('fa.play'))
+    main.nextBtn.setIcon(qta.icon('mdi.skip-next'))
+    main.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
+    main.nextRndBtn.setIcon(qta.icon('fa.question'))
+    main.stopAfterBtn.setIcon(qta.icon('fa.stop-circle'))
+    main.rndOrderBtn.setIcon(qta.icon('fa.random'))
+    main.browseDirBtn.setIcon(qta.icon('fa.folder-open'))
+    main.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
+    main.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
+    main.settingsBtn.setIcon(qta.icon('fa.cog'))
+
+    # main.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(main, 'Message', 'Track "' + main.getSelectedTrack().getTitle() + '" will be skipped')))
+    main.posSlider.setMaximum(1000)
+    # load Directory tree
+    main.treeView.setModel(main.treeModel)
+    # load Tracks
+    main.tableView.setModel(main.tableModel)
+    main.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+    # my custom statusbar
+    main.statusbar.setObjectName("statusbar")
+    main.setStatusBar(main.statusbar)
+    # statusbar widgets
+    main.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, main)
+    main.volumeSlider.setMaximum(100)
+    main.volumeSlider.setValue(main.player.getVolume())
+    main.volumeSlider.setToolTip("Volume")
+    main.volumeSlider.setFixedWidth(100)
+    main.statusbar.addPermanentWidget(main.volumeSlider)
+    # search edit params
+    main.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
 
 
 class TreeModel(QtGui.QStandardItemModel):
