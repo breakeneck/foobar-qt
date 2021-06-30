@@ -1,5 +1,5 @@
 import os
-import player
+from player import Player
 from library import Library, Folder, Track
 from random import randint
 from PyQt5 import QtGui, QtCore, QtWidgets
@@ -47,6 +47,7 @@ class TreeModel(QtGui.QStandardItemModel):
 
 class TableModel(QtCore.QAbstractTableModel):
     library: Library
+    player: Player
 
     def __init__(self):
         super(TableModel, self).__init__()
@@ -58,6 +59,9 @@ class TableModel(QtCore.QAbstractTableModel):
 
     def setLibrary(self, library):
         self.library = library
+
+    def setPlayer(self, player):
+        self.player = player
 
     def rowCount(self, parent=None):
         return len(self.rows)
@@ -101,38 +105,38 @@ class TableModel(QtCore.QAbstractTableModel):
         self.modelReset.emit()
 
     def getNowPlayIndex(self):
-        trackId = player.now_playing.id
+        trackId = self.player.now_playing.id
         for row, track in enumerate(self.tracks):
             if isinstance(track, Track) and track.id == trackId:
-                player.now_playing_row = row
+                self.player.now_playing_row = row
                 return self.index(row, 0)
-        player.now_playing_row = -1
+        self.player.now_playing_row = -1
         return False
 
     def getNextIndex(self):
-        while player.now_playing_row < len(self.tracks):
-            player.now_playing_row += 1
+        while self.player.now_playing_row < len(self.tracks):
+            self.player.now_playing_row += 1
 
-            item = self.tracks[player.now_playing_row]
+            item = self.tracks[self.player.now_playing_row]
             if isinstance(item, Track) and not item.skipped:
-                return self.index(player.now_playing_row, 0)
+                return self.index(self.player.now_playing_row, 0)
 
         return False
 
     def getPrevIndex(self):
-        self.getNowPlayIndex()  # Refresh player.now_playing_row
+        self.getNowPlayIndex()  # Refresh self.player.now_playing_row
         if not self.getPrevRow():
             return False
 
-        while not isinstance(self.tracks[player.now_playing_row], Track):
+        while not isinstance(self.tracks[self.player.now_playing_row], Track):
             if not self.getPrevRow():
                 return False
 
-        return self.index(player.now_playing_row, 0)
+        return self.index(self.player.now_playing_row, 0)
 
     def getPrevRow(self):
-        if player.now_playing_row > 0:
-            player.now_playing_row -= 1
+        if self.player.now_playing_row > 0:
+            self.player.now_playing_row -= 1
             return True
         else:
             return False
@@ -145,8 +149,8 @@ class TableModel(QtCore.QAbstractTableModel):
         while not isinstance(self.tracks[index], Track):
             index = randint(0, len(self.tracks) - 1)
 
-        player.now_playing_row = index
-        return self.index(player.now_playing_row, 0)
+        self.player.now_playing_row = index
+        return self.index(self.player.now_playing_row, 0)
 
 
 class StatusBar(QtWidgets.QStatusBar):

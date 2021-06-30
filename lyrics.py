@@ -2,8 +2,6 @@ import lyricwikia
 from PyLyrics import *
 import lyricsgenius
 
-import player
-
 
 class Lyrics:
     PROVIDER_GENIUS = 'Genius.com'
@@ -27,7 +25,7 @@ class Lyrics:
     def initProviders(self):
         self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
 
-    def find(self):
+    def find(self, player):
         try:
             if self.provider == self.PROVIDER_GENIUS:
                 song = self.genius.search_song(player.now_playing.title, player.now_playing.artist)

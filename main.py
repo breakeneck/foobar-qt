@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QShortcut
 import config
 import design
 from library import Library, Track
-import player
+from player import Player
 from lyrics import Lyrics
 from dialog import Ui_Dialog
 import qtawesome as qta
@@ -39,6 +39,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # config loading
         self.config = config.Config(self)
         self.library = Library(self.config.getLibraryDirs())
+        self.player = Player()
         self.lyrics = Lyrics(self.config)
 
         # make post ui setup after library is initialized
@@ -102,17 +103,17 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.selectCurrentTrack()
 
     def stop(self):
-        player.stop()
+        self.player.stop()
         self.updatePlayStatus()
 
     def updatePlayStatus(self):
-        icon = qta.icon('fa.play') if player.isNoMusic() else qta.icon('fa.pause')
+        icon = qta.icon('fa.play') if self.player.isNoMusic() else qta.icon('fa.pause')
         self.playBtn.setIcon(icon)
-        if player.isNoMusic():
+        if self.player.isNoMusic():
             self.timer.stop()
         else:
             self.timer.start()
-        self.statusbar.showMessage(player.getNowPlayingMsg())
+        self.statusbar.showMessage(self.player.getNowPlayingMsg())
 
     def selectCurrentTrack(self):
         currentIndex = self.tableModel.getNowPlayIndex()
@@ -120,21 +121,21 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.tableView.setCurrentIndex(currentIndex)
 
     def playBtnClick(self):
-        if not player or 'now_playing' not in player:
+        if not self.player.now_playing:
             return self.play((self.tableView.selectedIndexes() or [None])[0])
 
-        player.playPause()
+        self.player.playPause()
         self.updatePlayStatus()
 
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
             return print('No item selected')
 
-        track = player.play(index.row(), self.tableModel.tracks[index.row()])
+        track = self.player.play(index.row(), self.tableModel.tracks[index.row()])
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
-            # self.lyricsTxt.setText(self.lyrics.find())
+            # self.lyricsTxt.setText(self.lyrics.find(self.player))
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()
@@ -179,15 +180,15 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def setPos(self):
         self.timer.stop()
         pos = self.posSlider.value()
-        player.mediaplayer.set_position(pos / 1000.0)
+        self.player.mediaplayer.set_position(pos / 1000.0)
         self.timer.start()
 
     def updatePos(self):
-        media_pos = int(player.mediaplayer.get_position() * 1000)
+        media_pos = int(self.player.mediaplayer.get_position() * 1000)
         # print('mediapos', media_pos)
         self.posSlider.setValue(media_pos)
         # No need to call this function if nothing is played
-        if not player.mediaplayer.is_playing():
+        if not self.player.mediaplayer.is_playing():
             if self.stopAfterBtn.isChecked():
                 self.stopAfterBtn.setChecked(False)
                 self.stop()
@@ -204,7 +205,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def skipTrack(self):
         for index in list(set([i.row() for i in self.tableView.selectedIndexes()])):
             track = self.tableModel.tracks[index]
-            if isinstance(track, self.library.Track):
+            if isinstance(track, Track):
                 track.skipped = 0 if track.skipped else 1
                 track.updateAttr('skipped')
                 self.tableModel.tracks[index] = track
@@ -218,6 +219,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.treeModel.setLibrary(self.library)
         self.tableModel = customui.TableModel()
         self.tableModel.setLibrary(self.library)
+        self.tableModel.setPlayer(self.player)
         self.statusbar = customui.StatusBar()
         # update qtDesigner non available properties
         self.timer.setInterval(100)
@@ -248,7 +250,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # statusbar widgets
         self.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.volumeSlider.setMaximum(100)
-        self.volumeSlider.setValue(player.getVolume())
+        self.volumeSlider.setValue(self.player.getVolume())
         self.volumeSlider.setToolTip("Volume")
         self.volumeSlider.setFixedWidth(100)
         self.statusbar.addPermanentWidget(self.volumeSlider)
@@ -267,7 +269,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.lyrics.onChangeTokens()
 
     def setVolume(self, volume):
-        player.setVolume(volume)
+        self.player.setVolume(volume)
 
     def tableModelBeforeChanged(self):
         for row in self.tableModel.groupRows:
