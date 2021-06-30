@@ -2,21 +2,16 @@ import sys
 import time
 
 from PyQt5 import QtWidgets, QtCore, Qt, QtGui
+from PyQt5.QtWidgets import QShortcut
 
 import config
 import design
-import library
+from library import Library, Track
 import player
 from lyrics import Lyrics
 from dialog import Ui_Dialog
 import qtawesome as qta
-
-
-class StatusBar(QtWidgets.QStatusBar):
-    clicked = QtCore.pyqtSignal()
-
-    def mousePressEvent(self, event):
-        self.clicked.emit()
+import customui
 
 
 class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
@@ -28,7 +23,6 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
         self.setupUi(self)
 
         self.saveConfigButton.clicked.connect(self.confirm)
-
 
     def confirm(self):
         self.close()
@@ -44,7 +38,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         # config loading
         self.config = config.Config(self)
-        library.init(self.config.getLibraryDirs())
+        self.library = Library(self.config.getLibraryDirs())
         self.lyrics = Lyrics(self.config)
 
         # make post ui setup after library is initialized
@@ -79,11 +73,16 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.statusbar.clicked.connect(self.selectCurrentTrack)
         self.expandBtn.clicked.connect(self.expandBtnClick)
         self.volumeSlider.valueChanged.connect(self.setVolume)
+        # shortcuts
+        QShortcut(QtGui.QKeySequence('Ctrl+S'), self).activated.connect(self.skipTrack)
+        QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(self.playBtnClick)
+        QShortcut(QtGui.QKeySequence('`'), self).activated.connect(self.showMinimized)
+        QShortcut(QtGui.QKeySequence('Ctrl+F'), self).activated.connect(lambda: self.searchEdit.setFocus())
 
     def treeViewClick(self, index: QtCore.QModelIndex):
-        library.selected_dir_row = index.row()
-        library.selected_dir = library.TreeModel().getDirPath(index)
-        self.config.updateSelectedDir(library.selected_dir, library.selected_dir_row)
+        self.library.selected_dir_row = index.row()
+        self.library.selected_dir = self.treeModel.getDirPath(index)
+        self.config.updateSelectedDir(self.library.selected_dir, self.library.selected_dir_row)
         self.searchChanged()
 
     def keyPressEvent(self, e):
@@ -116,7 +115,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.tableView.setCurrentIndex(currentIndex)
 
     def playBtnClick(self):
-        if not player.now_playing:
+        if not player or 'now_playing' not in player:
             return self.play((self.tableView.selectedIndexes() or [None])[0])
 
         player.playPause()
@@ -153,19 +152,17 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         else:
             self.stop()
 
-
     def rescanLibrary(self):
         start_time = time.time()
-        library.rescan()
+        self.library.rescan()
         self.treeModel.loadTreeData()
         print("--- Library scan is completed in %s seconds ---" % (time.time() - start_time))
-
 
     def browseDirClick(self):
         newDir = QtWidgets.QFileDialog.getExistingDirectory(self)
         if newDir:
             self.config.updateLibraryDir(newDir)
-            library.updateDirs([newDir, '', -1])
+            self.library.updateDirs([newDir, '', -1])
             self.rescanLibrary()
             self.config.save()
 
@@ -173,7 +170,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         print(self.expandBtn.isChecked())
         # self.treeModel.
         # self.treeView.rootIndex().child()
-
 
     def setPos(self):
         self.timer.stop()
@@ -203,21 +199,21 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def skipTrack(self):
         for index in list(set([i.row() for i in self.tableView.selectedIndexes()])):
             track = self.tableModel.tracks[index]
-            if isinstance(track, library.Track):
+            if isinstance(track, self.library.Track):
                 track.skipped = 0 if track.skipped else 1
                 track.updateAttr('skipped')
                 self.tableModel.tracks[index] = track
         self.tableModel.refreshPlaylist()
-            # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
-
+        # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
 
     def postSetupUi(self):
         # add invisible elements
         self.timer = QtCore.QTimer(self)
-        self.treeModel = library.TreeModel()
-        self.tableModel = library.TableModel()
-        self.statusbar = StatusBar()
-        self.skipShortcut = QtWidgets.QShortcut(QtGui.QKeySequence('Ctrl+S'), self)
+        self.treeModel = customui.TreeModel(self)
+        self.treeModel.setLibrary(self.library)
+        self.tableModel = customui.TableModel()
+        self.tableModel.setLibrary(self.library)
+        self.statusbar = customui.StatusBar()
         # update qtDesigner non available properties
         self.timer.setInterval(100)
         # design updates
@@ -235,7 +231,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.settingsBtn.setIcon(qta.icon('fa.cog'))
 
         # self.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(self, 'Message', 'Track "' + self.getSelectedTrack().getTitle() + '" will be skipped')))
-        self.skipShortcut.activated.connect(self.skipTrack)
         self.posSlider.setMaximum(1000)
         # load Directory tree
         self.treeView.setModel(self.treeModel)
@@ -252,6 +247,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.volumeSlider.setToolTip("Volume")
         self.volumeSlider.setFixedWidth(100)
         self.statusbar.addPermanentWidget(self.volumeSlider)
+        # search edit params
+        self.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
 
     def openSettingsDialog(self):
         dialog = SettingsDialog(self)
@@ -273,7 +270,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def tableModelChanged(self):
         for row in self.tableModel.groupRows:
-            self.tableView.setSpan(row, 0, 1, library.Track.colCount())
+            self.tableView.setSpan(row, 0, 1, Track.colCount())
 
     def closeEvent(self, event):
         self.config.save()

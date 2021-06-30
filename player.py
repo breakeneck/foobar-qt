@@ -8,6 +8,9 @@ now_playing: None  # type: library.Track
 instance = vlc.Instance()
 mediaplayer = instance.media_player_new()
 
+class player:
+    pass
+
 
 def onPlayStart():
     pass

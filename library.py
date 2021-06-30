@@ -1,43 +1,73 @@
 import os
 import eyed3
 import database
-import player
-from random import randint
-from PyQt5 import QtGui, QtCore, QtWidgets
-
-TB_FOLDER = 'folder'
-TB_TRACK = 'track'
-
-root_dir: str = ''
-selected_dir = ''
-selected_dir_row = -1
 
 
-def init(dirs):
-    updateDirs(dirs)
-    # init database
-    is_db_exists = database.connect()
-    if not is_db_exists:
+class Library:
+    FOLDER_TABLE_NAME = 'folder'
+    TRACK_TABLE_NAME = 'track'
+
+    root_dir: str = ''
+    selected_dir = ''
+    selected_dir_row = -1
+
+    def __init__(self, dirs):
+        self.updateDirs(dirs)
+        # init database
+        isDbExists = database.connect()
+        if not isDbExists:
+            Track().create_table()
+            Folder().create_table()
+        self.scanner = Scanner(self)
+
+    def updateDirs(self, dirs):
+        self.root_dir, self.selected_dir, self.selected_dir_row = dirs
+
+    def rescan(self):
+        self.scanner.existing_tracks = Track.indexByPath(Track().getAllByPath(self.root_dir, ''))
+
+        database.drop()
+        database.connect()
+
         Track().create_table()
         Folder().create_table()
 
-
-def updateDirs(dirs):
-    global root_dir, selected_dir, selected_dir_row
-    root_dir, selected_dir, selected_dir_row = dirs
+        self.scanner.parse(self.root_dir)
 
 
-def rescan():
-    scanner = Scanner()
-    scanner.existing_tracks = Track.indexByPath(Track().getAllByPath(root_dir, ''))
-
-    database.drop()
-    database.connect()
-
-    Track().create_table()
-    Folder().create_table()
-
-    scanner.parse(root_dir)
+# TB_FOLDER = 'folder'
+# TB_TRACK = 'track'
+#
+# root_dir: str = ''
+# selected_dir = ''
+# selected_dir_row = -1
+#
+#
+# def init(dirs):
+#     updateDirs(dirs)
+#     # init database
+#     is_db_exists = database.connect()
+#     if not is_db_exists:
+#         Track().create_table()
+#         Folder().create_table()
+#
+#
+# def updateDirs(dirs):
+#     global root_dir, selected_dir, selected_dir_row
+#     root_dir, selected_dir, selected_dir_row = dirs
+#
+#
+# def rescan():
+#     scanner = Scanner()
+#     scanner.existing_tracks = Track.indexByPath(Track().getAllByPath(root_dir, ''))
+#
+#     database.drop()
+#     database.connect()
+#
+#     Track().create_table()
+#     Folder().create_table()
+#
+#     scanner.parse(root_dir)
 
 
 class Folder(database.Model):
@@ -50,7 +80,7 @@ class Folder(database.Model):
 
     @property
     def tableName(self):
-        return TB_FOLDER
+        return Library.FOLDER_TABLE_NAME
 
     @property
     def indexedAttrs(self):
@@ -86,7 +116,7 @@ class Track(database.Model):
 
     @property
     def tableName(self):
-        return TB_TRACK
+        return Library.TRACK_TABLE_NAME
 
     def getTitle(self):
         return self.artist + ' - ' + self.title
@@ -113,8 +143,8 @@ class Track(database.Model):
         return indexed
 
     @staticmethod
-    def getPlaylist(query=''):
-        path = selected_dir if selected_dir else root_dir
+    def getPlaylist(library, query=''):
+        path = library.selected_dir if library.selected_dir else library.root_dir
 
         playlist = []
         tracks = []
@@ -137,9 +167,13 @@ class Track(database.Model):
 
 class Scanner:
     existing_tracks: {}
+    library: Library
+
+    def __init__(self, library):
+        self.library = library
 
     def parse(self, dir_name):
-        if dir_name == root_dir:
+        if dir_name == self.library.root_dir:
             self.insert_dir(dir_name)
 
         files = os.listdir(dir_name)
@@ -155,9 +189,8 @@ class Scanner:
                 else:
                     self.insert_track(full_path)
 
-    @staticmethod
-    def get_short_dir_name(full_path):
-        level = full_path.count('/') - root_dir.count('/')
+    def get_short_dir_name(self, full_path):
+        level = full_path.count('/') - self.library.root_dir.count('/')
         if level == 0:
             return '/'
         elif level == 1:
@@ -170,7 +203,7 @@ class Scanner:
         folder.path = full_path
         folder.basename = os.path.basename(full_path)
         folder.short_dir_name = self.get_short_dir_name(full_path)
-        folder.parent_dir = '' if root_dir == full_path else os.path.dirname(full_path)
+        folder.parent_dir = '' if self.library.root_dir == full_path else os.path.dirname(full_path)
         folder.insert()
 
     def insert_track(self, full_path):
@@ -200,138 +233,3 @@ class Scanner:
             track.title = track.basename
 
         track.insert()
-
-
-class TreeModel(QtGui.QStandardItemModel):
-    def __init__(self, parent=None):
-        super(TreeModel, self).__init__(parent)
-        self.loadTreeData()
-        self.folders = []
-
-    def loadTreeData(self):
-        self.clear()
-
-        for folder in Folder().getAll():
-            parent = self.invisibleRootItem()
-            for word in folder.path[len(os.path.dirname(root_dir)):].split("/")[1:]:
-                for i in range(parent.rowCount()):
-                    item = parent.child(i)
-                    if item.text() == word:
-                        it = item
-                        break
-                else:
-                    it = QtGui.QStandardItem(word)
-                    parent.setChild(parent.rowCount(), it)
-                parent = it
-
-        self.updateTitle()
-
-    def updateTitle(self):
-        self.setHeaderData(0, QtCore.Qt.Horizontal, root_dir)
-
-    @staticmethod
-    def getDirPath(index: QtCore.QModelIndex):
-        folder = []
-        while index.isValid():
-            folder.append(index.data())
-            index = index.parent()
-        return os.path.dirname(root_dir) + '/' + '/'.join(folder[::-1])
-
-
-class TableModel(QtCore.QAbstractTableModel):
-    def __init__(self):
-        super(TableModel, self).__init__()
-        self.headers = Track().getAttrLabels()
-        self.groupRows = []
-        self.tracks = []
-        self.rows = []
-        self.query = ''
-
-    def rowCount(self, parent=None):
-        return len(self.rows)
-
-    def columnCount(self, parent=None):
-        return len(self.headers)
-
-    def data(self, index, role=None):
-        if role == QtCore.Qt.FontRole:
-            if index.row() in self.groupRows:
-                font = QtGui.QFont()
-                font.setBold(True)
-                return font
-            elif self.tracks[index.row()].skipped:
-                font = QtGui.QFont()
-                font.setStrikeOut(True)
-                return font
-        # } else if (role == Qt::ForegroundRole & & index.column() == 0) {
-        # return QColor(Qt::red);
-        # }
-        if role != QtCore.Qt.DisplayRole:
-            return QtCore.QVariant()
-        return self.rows[index.row()][index.column()]
-        # return self.tracks[index.row()][index.column()]
-
-    def headerData(self, section, orientation, role=None):
-        if role != QtCore.Qt.DisplayRole or orientation != QtCore.Qt.Horizontal:
-            return QtCore.QVariant()
-        return self.headers[section]
-
-    def refreshPlaylist(self, query=''):
-        self.query = ''
-        self.tracks, self.rows = Track().getPlaylist(query)
-
-        self.modelAboutToBeReset.emit()
-        self.groupRows.clear()
-        for row, item in enumerate(self.tracks):
-            if isinstance(item, str):
-                self.groupRows.append(row)
-
-        self.modelReset.emit()
-
-    def getNowPlayIndex(self):
-        trackId = player.now_playing.id
-        for row, track in enumerate(self.tracks):
-            if isinstance(track, Track) and track.id == trackId:
-                player.now_playing_row = row
-                return self.index(row, 0)
-        player.now_playing_row = -1
-        return False
-
-    def getNextIndex(self):
-        while player.now_playing_row < len(self.tracks):
-            player.now_playing_row += 1
-
-            item = self.tracks[player.now_playing_row]
-            if isinstance(item, Track) and not item.skipped:
-                return self.index(player.now_playing_row, 0)
-
-        return False
-
-    def getPrevIndex(self):
-        self.getNowPlayIndex()  # Refresh player.now_playing_row
-        if not self.getPrevRow():
-            return False
-
-        while not isinstance(self.tracks[player.now_playing_row], Track):
-            if not self.getPrevRow():
-                return False
-
-        return self.index(player.now_playing_row, 0)
-
-    def getPrevRow(self):
-        if player.now_playing_row > 0:
-            player.now_playing_row -= 1
-            return True
-        else:
-            return False
-
-    def getRndIndex(self):
-        if not len(self.tracks):
-            return False
-
-        index = randint(0, len(self.tracks) - 1)
-        while not isinstance(self.tracks[index], Track):
-            index = randint(0, len(self.tracks) - 1)
-
-        player.now_playing_row = index
-        return self.index(player.now_playing_row, 0)
