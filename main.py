@@ -76,8 +76,12 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # shortcuts
         QShortcut(QtGui.QKeySequence('Ctrl+S'), self).activated.connect(self.skipTrack)
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(self.playBtnClick)
-        QShortcut(QtGui.QKeySequence('`'), self).activated.connect(self.showMinimized)
-        QShortcut(QtGui.QKeySequence('Ctrl+F'), self).activated.connect(lambda: self.searchEdit.setFocus())
+        QShortcut(QtGui.QKeySequence('Ctrl+H'), self).activated.connect(self.showMinimized)
+        QShortcut(QtGui.QKeySequence('Ctrl+F'), self).activated.connect(self.goToSearch)
+
+    def goToSearch(self):
+        self.searchEdit.setText('')
+        self.searchEdit.setFocus()
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         self.library.selected_dir_row = index.row()
@@ -95,6 +99,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def searchClear(self):
         self.searchEdit.setText('')
+        self.selectCurrentTrack()
 
     def stop(self):
         player.stop()
