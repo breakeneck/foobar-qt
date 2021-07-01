@@ -50,6 +50,7 @@ def postSetup(main):
     main.statusbar.addPermanentWidget(main.volumeSlider)
     # search edit params
     main.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
+    main.tableView.setFocusPolicy(QtCore.Qt.StrongFocus)
 
 
 class TreeModel(QtGui.QStandardItemModel):

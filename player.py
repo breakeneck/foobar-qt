@@ -26,17 +26,15 @@ class Player:
         # LinuxStandbyLock.release()
 
     def playPause(self, track=None, pos=0):
-        global paused
-
         if self.now_playing:
-            if paused:
+            if self.paused:
                 self.mediaplayer.play()
                 self.onPlayStart()
             else:
                 self.mediaplayer.pause()
                 self.onPlayEnd()
-            paused = not paused
-        return not paused
+            self.paused = not self.paused
+        return not self.paused
 
     def play(self, index: int, track=None):
         try:
@@ -72,6 +70,7 @@ class Player:
     def stop(self):
         self.paused = False
         self.now_playing = None
+        self.now_playing_row = -1
         self.mediaplayer.stop()
         self.onPlayEnd()
 

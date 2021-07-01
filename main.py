@@ -46,6 +46,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.prevBtn.clicked.connect(self.prev)
         self.nextRndBtn.clicked.connect(self.nextRnd)
         self.searchEdit.textChanged.connect(self.searchChanged)
+        self.searchEdit.returnPressed.connect(self.stopAndPlay)
         # self.searchEdit.keyPressEvent.connect(self.searchEditKeyPress)
         self.searchClearBtn.clicked.connect(self.searchClear)
         self.treeView.clicked.connect(self.treeViewClick)
@@ -85,6 +86,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def searchClear(self):
         self.searchEdit.setText('')
         self.selectCurrentTrack()
+        self.tableView.setFocus()
 
     def stop(self):
         self.player.stop()
@@ -104,9 +106,17 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if currentIndex is not False:
             self.tableView.setCurrentIndex(currentIndex)
 
+    def stopAndPlay(self):
+        self.player.stop()
+        self.tableView.clearSelection()
+        self.playBtnClick()
+
     def playBtnClick(self):
         if not self.player.now_playing:
-            return self.play((self.tableView.selectedIndexes() or [None])[0])
+            index = self.tableView.selectedIndexes()
+            if not index:
+                index = [self.tableModel.getNextIndex()]
+            return self.play((index or [None])[0])
 
         self.player.playPause()
         self.updatePlayStatus()
@@ -195,51 +205,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 self.tableModel.tracks[index] = track
         self.tableModel.refreshPlaylist()
         # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
-
-    # def postSetupUi(self):
-    #     # add invisible elements
-    #     self.timer = QtCore.QTimer(self)
-    #     self.treeModel = customui.TreeModel(self)
-    #     self.treeModel.setLibrary(self.library)
-    #     self.tableModel = customui.TableModel()
-    #     self.tableModel.setLibrary(self.library)
-    #     self.tableModel.setPlayer(self.player)
-    #     self.statusbar = customui.StatusBar()
-    #     # update qtDesigner non available properties
-    #     self.timer.setInterval(100)
-    #     # design updates
-    #     self.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
-    #     self.lyricsCombo.addItems(self.lyrics.PROVIDERS)
-    #     self.playBtn.setIcon(qta.icon('fa.play'))
-    #     self.nextBtn.setIcon(qta.icon('mdi.skip-next'))
-    #     self.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
-    #     self.nextRndBtn.setIcon(qta.icon('fa.question'))
-    #     self.stopAfterBtn.setIcon(qta.icon('fa.stop-circle'))
-    #     self.rndOrderBtn.setIcon(qta.icon('fa.random'))
-    #     self.browseDirBtn.setIcon(qta.icon('fa.folder-open'))
-    #     self.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
-    #     self.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
-    #     self.settingsBtn.setIcon(qta.icon('fa.cog'))
-    #
-    #     # self.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(self, 'Message', 'Track "' + self.getSelectedTrack().getTitle() + '" will be skipped')))
-    #     self.posSlider.setMaximum(1000)
-    #     # load Directory tree
-    #     self.treeView.setModel(self.treeModel)
-    #     # load Tracks
-    #     self.tableView.setModel(self.tableModel)
-    #     self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-    #     # my custom statusbar
-    #     self.statusbar.setObjectName("statusbar")
-    #     self.setStatusBar(self.statusbar)
-    #     # statusbar widgets
-    #     self.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-    #     self.volumeSlider.setMaximum(100)
-    #     self.volumeSlider.setValue(self.player.getVolume())
-    #     self.volumeSlider.setToolTip("Volume")
-    #     self.volumeSlider.setFixedWidth(100)
-    #     self.statusbar.addPermanentWidget(self.volumeSlider)
-    #     # search edit params
-    #     self.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
 
     def openSettingsDialog(self):
         dialog = SettingsDialog(self)
