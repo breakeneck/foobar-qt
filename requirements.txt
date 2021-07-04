@@ -1,7 +1,7 @@
-lyricwikia
-pyqt5
-python-vlc
-eyed3
-qtawesome
-PyLyrics
-lyricsgenius
+lyricwikia~=0.1.11
+pyqt5~=5.15.2
+eyed3~=0.9.6
+qtawesome~=1.0.2
+PyLyrics~=1.1.0
+lyricsgenius~=2.0.2
+keyboard~=0.13.5

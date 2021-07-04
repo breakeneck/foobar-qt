@@ -14,6 +14,16 @@ from lyrics import Lyrics
 
 import qtawesome as qta
 
+from PyQt5.QtCore import Qt, QObject, pyqtSignal
+import keyboard
+
+
+class KeyBoardManager(QObject):
+    F1Signal = pyqtSignal()
+
+    def start(self):
+        keyboard.add_hotkey("F1", self.F1Signal.emit, suppress=True)
+
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def __init__(self, app):
@@ -64,6 +74,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(self.playBtnClick)
         QShortcut(QtGui.QKeySequence('Ctrl+H'), self).activated.connect(self.showMinimized)
         QShortcut(QtGui.QKeySequence('Ctrl+F'), self).activated.connect(self.goToSearch)
+
+        manager = KeyBoardManager(self)
+        manager.F1Signal.connect(self.playBtnClick)
+        manager.start()
 
     def goToSearch(self):
         self.searchEdit.setText('')
@@ -237,7 +251,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
 
     window = FooQt(app)  # Создаём объект класса ExampleApp
-    window.setWindowIcon(Qt.QIcon('musical-note.png'))
+    # window.setWindowIcon(Qt.QIcon('musical-note.png'))
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
 
