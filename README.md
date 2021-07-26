@@ -12,3 +12,12 @@ Main features:
 - Group by directory in Playlist view
 - Instant search
 - Autoload lyrics from inet (currently supports Lyrics Wikia)
+
+
+To enable insensitive case search for non ascii symbols compile
+```
+cd apsw-master
+../venv/bin/python setup.py fetch --sqlite
+../venv/bin/python setup.py build --enable-all-extensions
+../venv/bin/python setup.py build install
+```

@@ -1,27 +1,31 @@
-import sqlite3
 import os
+import apsw
 
 DB_NAME = 'db.sqlite3'
 
-connection: sqlite3.Connection
-db: sqlite3.Cursor
+# import sqlite3
+# connection: sqlite3.Connection
+# db: sqlite3.Cursor
 
+connection: apsw.Connection
+db: apsw.Cursor
 
 def connect():
     global connection, db
 
     is_db_exists = True if os.path.exists(DB_NAME) else False
 
-    connection = None
-    try:
-        connection = sqlite3.connect(DB_NAME)
-        db = connection.cursor()
-        if not is_db_exists:
-            print("Database and all tables will be created")
-            return is_db_exists
-
-    except sqlite3.Error as e:
-        print(e)
+    # connection = None
+    # try:
+    connection = apsw.Connection(DB_NAME)
+    # connection = sqlite3.connect(DB_NAME)
+    db = connection.cursor()
+    if not is_db_exists:
+        print("Database and all tables will be created")
+        return is_db_exists
+    # except
+    # except sqlite3.Error as e:
+    #     print(e)
 
 def drop():
     if os.path.exists(DB_NAME):
@@ -70,7 +74,7 @@ class Model:
 
         self.create_indexes()
 
-        connection.commit()
+        # connection.commit()
 
     def create_indexes(self):
         for attr in self.indexedAttrs:
@@ -90,7 +94,7 @@ class Model:
 
         try:
             db.execute(f'INSERT INTO {self.tableName}({attributes}) VALUES({question_marks})', values)
-            connection.commit()
+            # connection.commit()
         except Exception as e:
             print('Insert error: ' + str(e) + ' Attributes: ' + str(self.__dict__))
 
@@ -106,17 +110,17 @@ class Model:
             values.append(self.__dict__[attr])
         attributes = ','.join(attributes_list)
 
-        print(f'UPDATE {self.tableName} SET {attributes} WHERE id = {self.__dict__[self.pk]}')
-        print(values)
+        # print(f'UPDATE {self.tableName} SET {attributes} WHERE id = {self.__dict__[self.pk]}')
+        # print(values)
 
         if not db:
             connect()
         db.execute(f'UPDATE {self.tableName} SET {attributes} WHERE id = {self.__dict__[self.pk]}', values)
-        connection.commit()
+        # connection.commit()
 
     def updateAttr(self, attr):
         db.execute(f'UPDATE {self.tableName} SET {attr} = ? WHERE id = {self.__dict__[self.pk]}', [self.__dict__[attr]])
-        connection.commit()
+        # connection.commit()
 
     def load(self, values):
         for n, attr in enumerate(self.__dict__):
