@@ -93,12 +93,12 @@ class Model:
         attributes = ','.join(attributes_list)
 
         try:
-            db.execute(f'INSERT INTO {self.tableName}({attributes}) VALUES({question_marks})', values)
+            lastrowid = db.execute(f'INSERT INTO {self.tableName}({attributes}) VALUES({question_marks})', values)
             # connection.commit()
         except Exception as e:
             print('Insert error: ' + str(e) + ' Attributes: ' + str(self.__dict__))
 
-        return db.lastrowid
+        return lastrowid
 
     def update(self):
         attributes_list = []

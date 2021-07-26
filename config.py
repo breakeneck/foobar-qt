@@ -27,7 +27,7 @@ class Config:
             }
 
     def load(self, app: QApplication):
-        print(self.config)
+        # print(self.config)
         app.setStyle(self.config['theme'])
         self.w.themeCombo.setCurrentIndex(self.w.themeCombo.findText(self.config['theme']))
         self.w.lyricsCombo.setCurrentIndex(self.w.lyricsCombo.findText(self.config['lyrics_provider']))
@@ -36,6 +36,18 @@ class Config:
         self.w.rndOrderBtn.setChecked(self.config['rndOrder'])
         [self.w.tableView.setColumnWidth(i, width) for i, width in enumerate(self.config['column_sizes'])]
         self.w.volumeSlider.setValue(self.config['volume'])
+        self.w.setVolume(self.w.volumeSlider.value())
+        self.w.searchEdit.setText(self.config['search'])
+
+    def onAppShow(self):
+        self.w.treeView.verticalScrollBar().setSliderPosition(self.config['treeview_scroll_pos'])
+        self.w.tableView.verticalScrollBar().setSliderPosition(self.config['tableview_scroll_pos'])
+
+        rootTreeItem = self.w.treeModel.invisibleRootItem()
+        for item in self.w.treeModel.iterItems(rootTreeItem):
+            if item.dbModel.path == self.config['treeview_path']:
+                self.w.treeView.setCurrentIndex(item.index())
+                break
 
     def save(self):
         self.config['window'] = self.w.geometry().getRect()
@@ -45,7 +57,23 @@ class Config:
         self.config['lyrics_provider'] = self.w.lyricsCombo.currentText()
         self.config['column_sizes'] = [self.w.tableView.columnWidth(i) for i in range(0, self.w.tableModel.columnCount())]
         self.config['volume'] = self.w.volumeSlider.value()
+        self.config['search'] = self.w.searchEdit.text()
+        if self.w.treeView.selectedIndexes():
+            index = self.w.treeView.selectedIndexes()[0]
+            item = index.model().itemFromIndex(index)
+            self.config['treeview_path'] = item.dbModel.path
+        self.config['treeview_scroll_pos'] = self.w.treeView.verticalScrollBar().value()
+        self.config['tableview_scroll_pos'] = self.w.tableView.verticalScrollBar().value()
         json.dump(self.config, open('config.json', 'w'))
+
+        rootTreeItem = self.w.treeModel.invisibleRootItem()
+        for item in self.w.treeModel.iterItems(rootTreeItem):
+            if int(self.w.treeView.isExpanded(item.index())) != item.dbModel.is_expanded:
+                item.dbModel.is_expanded = int(self.w.treeView.isExpanded(item.index()))
+                item.dbModel.update()
+
+    def getTreeViewItem(self):
+        return self.config['treeview_path']
 
     def updateLibraryDir(self, directory):
         self.config['library_dir'] = directory

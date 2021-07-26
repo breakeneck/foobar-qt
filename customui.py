@@ -53,6 +53,87 @@ def postSetup(main):
     main.tableView.setFocusPolicy(QtCore.Qt.StrongFocus)
 
 
+class TreeWidget(QtWidgets.QTreeWidget):
+    currentTextChanged = QtCore.pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super(TreeWidget, self).__init__(parent)
+        self.currentItemChanged.connect(self.onCurrentItemChanged)
+        self.setHeaderLabel('Standard Section Library')
+        self.setRootIsDecorated(True)
+        self.setAlternatingRowColors(True)
+        self.readSettings()
+        self.expandAll()
+
+    def onCurrentItemChanged(self, current, previous):
+        if current not in [self.topLevelItem(ix) for ix in range(self.topLevelItemCount())]:
+            self.currentTextChanged.emit(current.text(0))
+
+    def readSettings(self):
+        settings = QtCore.QSettings()
+        settings.beginGroup("TreeWidget")
+        values = settings.value("items")
+        if values is None:
+            self.loadDefault()
+        else:
+            TreeWidget.dataToChild(values, self.invisibleRootItem())
+            self.customized_item = None
+            for ix in range(self.topLevelItemCount()):
+                tlevel_item = self.topLevelItem(ix)
+                if tlevel_item.text(0) == "Customized":
+                    self.customized_item = tlevel_item
+        settings.endGroup()
+
+    def writeSettings(self):
+        settings = QtCore.QSettings()
+        settings.beginGroup("TreeWidget")
+        settings.setValue("items", TreeWidget.dataFromChild(self.invisibleRootItem()))
+        settings.endGroup()
+
+    def loadDefault(self):
+        standardsectionlist = ["D100", "D150", "D200", "D250", "D300", "D350", "D400", "D450", "D500",
+                               "D550", "D600", "D650", "D700", "D750", "D800", "D850", "D900", "D950", "D1000"]
+        rootItem = QtWidgets.QTreeWidgetItem(self, ['Circular shapes'])
+        # rootItem.setIcon(0, QtGui.QIcon(os.path.join(iconroot, "images/circularcolumnnorebar.png")))
+        for element in standardsectionlist:
+            rootItem.addChild(QtWidgets.QTreeWidgetItem([element]))
+
+        self.customized_item = QtWidgets.QTreeWidgetItem(self, ["Customized"])
+        # self.customized_item.setIcon(0, QtGui.QIcon(os.path.join(iconroot, "images/circularcolumnnorebar.png")))
+
+    @staticmethod
+    def dataToChild(info, item):
+        TreeWidget.tupleToItem(info["data"], item)
+        for val in info["childrens"]:
+            child = QtWidgets.QTreeWidgetItem()
+            item.addChild(child)
+            TreeWidget.dataToChild(val, child)
+
+    @staticmethod
+    def tupleToItem(t, item):
+        # set values to item
+        ba, isSelected = t
+        ds = QtCore.QDataStream(ba)
+        ds >> item
+        item.setSelected(isSelected)
+
+    @staticmethod
+    def dataFromChild(item):
+        l = []
+        for i in range(item.childCount()):
+            child = item.child(i)
+            l.append(TreeWidget.dataFromChild(child))
+        return {"childrens": l, "data": TreeWidget.itemToTuple(item)}
+
+    @staticmethod
+    def itemToTuple(item):
+        # return values from item
+        ba = QtCore.QByteArray()
+        ds = QtCore.QDataStream(ba, QtCore.QIODevice.WriteOnly)
+        ds << item
+        return ba, item.isSelected()
+
+
 class TreeModel(QtGui.QStandardItemModel):
     library: Library
 
@@ -62,28 +143,49 @@ class TreeModel(QtGui.QStandardItemModel):
 
     def setLibrary(self, library):
         self.library = library
-        self.loadTreeData()
 
-    def loadTreeData(self):
+    def loadTreeData(self, treeView: QtWidgets.QTreeView):
         self.clear()
 
         for folder in Folder().getAll():
             parent = self.invisibleRootItem()
-            for word in folder.path[len(os.path.dirname(self.library.root_dir)):].split("/")[1:]:
+            for word in folder.getRelPath(self.library).split("/"):
+
                 for i in range(parent.rowCount()):
-                    item = parent.child(i)
-                    if item.text() == word:
-                        it = item
+                    child = parent.child(i)
+                    if child.text() == word:
+                        item = child
                         break
                 else:
-                    it = QtGui.QStandardItem(word)
-                    parent.setChild(parent.rowCount(), it)
-                parent = it
+                    item = FolderItem(word)
+                    item.setDbModel(folder)
+
+                    parent.setChild(parent.rowCount(), item)
+                    if item.dbModel.is_expanded:
+                        treeView.expand(item.index())
+                    else:
+                        treeView.collapse(item.index())
+                parent = item
 
         self.updateTitle()
 
+    def iterItems(self, root):
+        if root is not None:
+            stack = [root]
+            while stack:
+                parent = stack.pop(0)
+                for row in range(parent.rowCount()):
+                    for column in range(parent.columnCount()):
+                        child = parent.child(row, column)
+                        yield child
+                        if child.hasChildren():
+                            stack.append(child)
+
     def updateTitle(self):
         self.setHeaderData(0, QtCore.Qt.Horizontal, self.library.root_dir)
+
+    def getFolder(self, index):
+        return self.folders
 
     def getDirPath(self, index: QtCore.QModelIndex):
         folder = []
@@ -91,6 +193,13 @@ class TreeModel(QtGui.QStandardItemModel):
             folder.append(index.data())
             index = index.parent()
         return os.path.dirname(self.library.root_dir) + '/' + '/'.join(folder[::-1])
+
+
+class FolderItem(QtGui.QStandardItem):
+    dbModel: Folder
+
+    def setDbModel(self, dbModel):
+        self.dbModel = dbModel
 
 
 class TableModel(QtCore.QAbstractTableModel):

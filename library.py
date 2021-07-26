@@ -42,6 +42,7 @@ class Folder(database.Model):
         self.basename = ''
         self.short_dir_name = ''
         self.parent_dir = ''
+        self.is_expanded = 0
 
     @property
     def tableName(self):
@@ -54,6 +55,9 @@ class Folder(database.Model):
     def getAll(self):
         database.db.execute(f'SELECT * FROM {self.tableName} ORDER BY path')
         return map(lambda row: Folder().load(row), database.db.fetchall())
+
+    def getRelPath(self, library):
+        return self.path[len(os.path.dirname(library.root_dir)) + 1:]
 
 
 class Track(database.Model):
@@ -169,6 +173,7 @@ class Scanner:
         folder.basename = os.path.basename(full_path)
         folder.short_dir_name = self.get_short_dir_name(full_path)
         folder.parent_dir = '' if self.library.root_dir == full_path else os.path.dirname(full_path)
+        folder.is_expanded = 0
         folder.insert()
 
     def insert_track(self, full_path):

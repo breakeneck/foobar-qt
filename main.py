@@ -68,7 +68,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config.load(app)
         self.connectEvents(app)
 
-        self.tableModel.refreshPlaylist()
+        self.tableModel.refreshPlaylist(self.searchEdit.text())
+        self.treeModel.loadTreeData(self.treeView)
 
     def connectEvents(self, app):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
@@ -94,6 +95,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.statusbar.clicked.connect(self.selectCurrentTrack)
         self.expandBtn.clicked.connect(self.expandBtnClick)
         self.volumeSlider.valueChanged.connect(self.setVolume)
+        self.followTreeView.clicked.connect(self.followTreeViewClick)
+        # self.tableModel.endResetModel.connect(self.onTableModelReset)
         # shortcuts
         QShortcut(QtGui.QKeySequence('Ctrl+S'), self).activated.connect(self.skipTrack)
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(self.playBtnClick)
@@ -105,13 +108,35 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         #     'F1': self.playBtnClick
         # })
 
+    def showEvent(self, a0: QtGui.QShowEvent) -> None:
+        self.config.onAppShow()
+
+    def expandBtnClick(self):
+        if self.expandBtn.isChecked():
+            rootIndex = self.treeModel.index(0, 0)
+            self.treeView.expand(rootIndex)
+
+            for row in range(self.treeModel.rowCount(rootIndex)):
+                index = rootIndex.child(row, 0)
+                self.treeView.expand(index)
+        else:
+            self.treeView.collapseAll()
+
+    def followTreeViewClick(self):
+        if self.treeView.selectedIndexes():
+            index = self.treeView.selectedIndexes()[0]
+            self.treeView.scrollTo(index)
+            # item = index.model().itemFromIndex(index)
+            # print(item.path)
+            # print(self.treeModel.getDirPath(index))
+
     def goToSearch(self):
         self.searchEdit.setText('')
         self.searchEdit.setFocus()
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         self.library.selected_dir_row = index.row()
-        self.library.selected_dir = self.treeModel.getDirPath(index)
+        self.library.selected_dir = self.treeModel.itemFromIndex(index).dbModel.path  # self.treeModel.getDirPath(index)
         self.config.updateSelectedDir(self.library.selected_dir, self.library.selected_dir_row)
         self.searchChanged()
 
@@ -145,6 +170,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         currentIndex = self.tableModel.getNowPlayIndex()
         if currentIndex is not False:
             self.tableView.setCurrentIndex(currentIndex)
+        else:
+            print('can\'t move to current index, because its false')
 
     def stopAndPlay(self):
         self.player.stop()
@@ -195,7 +222,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def rescanLibrary(self):
         start_time = time.time()
         self.library.rescan()
-        self.treeModel.loadTreeData()
+        self.treeModel.loadTreeData(self.treeView)
         print("--- Library scan is completed in %s seconds ---" % (time.time() - start_time))
 
     def browseDirClick(self):
@@ -205,11 +232,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.library.updateDirs([newDir, '', -1])
             self.rescanLibrary()
             self.config.save()
-
-    def expandBtnClick(self):
-        print(self.expandBtn.isChecked())
-        # self.treeModel.
-        # self.treeView.rootIndex().child()
 
     def setPos(self):
         self.timer.stop()
@@ -243,7 +265,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 track.skipped = 0 if track.skipped else 1
                 track.updateAttr('skipped')
                 self.tableModel.tracks[index] = track
-        self.tableModel.refreshPlaylist()
+        self.tableModel.refreshPlaylist(self.searchEdit.text())
         # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
 
     def openSettingsDialog(self):
