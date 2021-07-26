@@ -3,6 +3,7 @@ import time
 
 from PyQt5 import QtWidgets, QtCore, Qt, QtGui
 from PyQt5.QtWidgets import QShortcut
+from PyQt5.Qt import QIcon
 
 import config
 import design
@@ -18,11 +19,35 @@ from PyQt5.QtCore import Qt, QObject, pyqtSignal
 import keyboard
 
 
-class KeyBoardManager(QObject):
-    F1Signal = pyqtSignal()
+# class Hotkey(QObject):
+#     signal = pyqtSignal()
+#
+#     def connect(self, event):
+#         self.signal.connect(event)
+#
+#     def listen(self, key):
+#         keyboard.add_hotkey(key, self.signal.emit, suppress=True)
 
-    def start(self):
-        keyboard.add_hotkey("F1", self.F1Signal.emit, suppress=True)
+
+# class Hotkeys:
+#     def __init__(self, app):
+#         self.app = app
+#     def map(self, hotkeysMapping):
+#         for shortcut, event in hotkeysMapping.items():
+#             hotkey = Hotkey(self.app)
+#             hotkey.connect(event)
+#             hotkey.listen(shortcut)
+
+# class Hotkey(QObject):
+#     hotkeys = {}
+#
+#     def __init__(self, shortcutsMapping):
+#         for key, event in shortcutsMapping.items():
+#             self.hotkeys[key] = Hotkey()
+#
+#         for key, event in shortcutsMapping.items():
+#             self.hotkeys[key].connect(event)
+#             keyboard.add_hotkey(key, self.hotkeys[key].emit, suppress=True)
 
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
@@ -75,9 +100,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         QShortcut(QtGui.QKeySequence('Ctrl+H'), self).activated.connect(self.showMinimized)
         QShortcut(QtGui.QKeySequence('Ctrl+F'), self).activated.connect(self.goToSearch)
 
-        manager = KeyBoardManager(self)
-        manager.F1Signal.connect(self.playBtnClick)
-        manager.start()
+        # self.hotkeys = Hotkeys(self)
+        # self.hotkeys.map({
+        #     'F1': self.playBtnClick
+        # })
 
     def goToSearch(self):
         self.searchEdit.setText('')
@@ -251,7 +277,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
 
     window = FooQt(app)  # Создаём объект класса ExampleApp
-    # window.setWindowIcon(Qt.QIcon('musical-note.png'))
+    window.setWindowIcon(QIcon('musical-note.png'))
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
 
