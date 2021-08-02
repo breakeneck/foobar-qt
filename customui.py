@@ -1,7 +1,7 @@
 import os
 from player import Player
 from library import Library, Folder, Track
-from random import randint
+import random
 from PyQt5 import QtGui, QtCore, QtWidgets
 import qtawesome as qta
 
@@ -302,12 +302,15 @@ class TableModel(QtCore.QAbstractTableModel):
             return False
 
     def getRndIndex(self):
-        if not len(self.tracks):
+        notSkippedTracks = {}
+        for index, track in enumerate(self.tracks):
+            if isinstance(track, Track) and not track.skipped:
+                notSkippedTracks[index] = track
+
+        if not len(notSkippedTracks):
             return False
 
-        index = randint(0, len(self.tracks) - 1)
-        while not isinstance(self.tracks[index], Track):
-            index = randint(0, len(self.tracks) - 1)
+        index = random.choice(list(notSkippedTracks.keys()))
 
         self.player.now_playing_row = index
         return self.index(self.player.now_playing_row, 0)
