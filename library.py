@@ -1,6 +1,7 @@
 import os
 import eyed3
 import database
+from pathlib import Path
 
 
 class Library:
@@ -25,6 +26,11 @@ class Library:
 
     def rescan(self):
         self.scanner.existing_tracks = Track.indexByPath(Track().getAllByPath(self.root_dir, ''))
+        self.scanner.tracks = {}
+        for track in Track.getPlaylist(self):
+            if isinstance(track, Track):
+                # del track['id']
+                self.scanner.tracks[track['path']] = track
 
         database.drop()
         database.connect()
@@ -33,6 +39,7 @@ class Library:
         Folder().create_table()
 
         self.scanner.parse(self.root_dir)
+        self.scanner.tracks = []
 
 
 class Folder(database.Model):
@@ -137,6 +144,7 @@ class Track(database.Model):
 class Scanner:
     existing_tracks: {}
     library: Library
+    tracks = {}
 
     def __init__(self, library):
         self.library = library
@@ -179,6 +187,9 @@ class Scanner:
     def insert_track(self, full_path):
         track = Track()
 
+        if full_path in self.tracks:
+            return self.tracks[full_path].insert()
+
         track.full_path = full_path
         track.basename = os.path.basename(full_path)
         track.dir_name = os.path.dirname(full_path)
@@ -194,7 +205,7 @@ class Scanner:
 
         try:
             track.artist = file.tag.artist
-            track.title = file.tag.title
+            track.title = file.tag.title if file.tag.title else Path(track.basename).stem
             track.album = file.tag.album
         except:
             print('Tag error for file', full_path)
