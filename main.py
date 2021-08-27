@@ -73,7 +73,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def connectEvents(self, app):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
-        self.lyricsCombo.activated.connect(lambda: self.lyrics.setProvider(self.lyricsCombo.currentText()))
+        self.lyricsCombo.activated.connect(self.changeLyricsProvider)
+        self.lyrics.finished.connect(self.updateLyrics)
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(self.rescanLibrary)
         self.settingsBtn.clicked.connect(self.openSettingsDialog)
@@ -196,7 +197,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
-            # self.lyricsTxt.setText(self.lyrics.find(self.player))
+            self.lyrics.run(self.player)
+
+    def updateLyrics(self, text):
+        self.lyricsTxt.setText(text)
+
+    def changeLyricsProvider(self, text):
+        self.lyrics.setProvider(self.lyricsCombo.currentText())
+        self.lyrics.un(self.player)
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()
