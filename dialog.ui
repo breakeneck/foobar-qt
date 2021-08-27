@@ -46,7 +46,13 @@
     </rect>
    </property>
    <property name="text">
-    <string>Genius token (can be get here: https://genius.com/api-clients</string>
+    <string>Genius token (can be get here: &lt;a href=&quot;https://genius.com/api-clients&quot;&gt;genius.com/api-clients&lt;/a&gt;</string>
+   </property>
+   <property name="openExternalLinks">
+    <bool>true</bool>
+   </property>
+   <property name="textInteractionFlags">
+    <set>Qt::TextBrowserInteraction</set>
    </property>
   </widget>
  </widget>

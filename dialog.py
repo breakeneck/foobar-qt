@@ -23,6 +23,8 @@ class Ui_Dialog(object):
         self.saveConfigButton.setObjectName("saveConfigButton")
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setGeometry(QtCore.QRect(10, 20, 431, 22))
+        self.label.setOpenExternalLinks(True)
+        self.label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         self.label.setObjectName("label")
 
         self.retranslateUi(Dialog)
@@ -32,14 +34,4 @@ class Ui_Dialog(object):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
         self.saveConfigButton.setText(_translate("Dialog", "Save"))
-        self.label.setText(_translate("Dialog", "Genius token (can be get here: https://genius.com/api-clients"))
-
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    Dialog = QtWidgets.QDialog()
-    ui = Ui_Dialog()
-    ui.setupUi(Dialog)
-    Dialog.show()
-    sys.exit(app.exec_())
+        self.label.setText(_translate("Dialog", "Genius token (can be get here: <a href=\"https://genius.com/api-clients\">genius.com/api-clients</a>"))
