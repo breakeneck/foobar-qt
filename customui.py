@@ -30,6 +30,7 @@ def postSetup(main):
     main.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
     main.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
     main.settingsBtn.setIcon(qta.icon('fa.cog'))
+    main.followTreeView.setIcon(qta.icon('fa.dot-circle-o'))
 
     # main.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(main, 'Message', 'Track "' + main.getSelectedTrack().getTitle() + '" will be skipped')))
     main.posSlider.setMaximum(1000)

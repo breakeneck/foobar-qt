@@ -23,7 +23,12 @@ class Config:
                 'column_sizes': [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
                 'volume': 100,
                 'lyrics_genius_token': '',
-                'lyrics_provider': ''
+                'lyrics_provider': '',
+                'rndOrder': False,
+                'search': '',
+                'treeview_scroll_pos': 0,
+                'tableview_scroll_pos': 0,
+                'treeview_path': '',
             }
 
     def load(self, app: QApplication):

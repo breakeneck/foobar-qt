@@ -96,7 +96,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.statusbar.clicked.connect(self.selectCurrentTrack)
         self.expandBtn.clicked.connect(self.expandBtnClick)
         self.volumeSlider.valueChanged.connect(self.setVolume)
-        self.followTreeView.clicked.connect(self.followTreeViewClick)
+        self.followTreeView.clicked.connect(self.locateCurrentFolder)
         # self.tableModel.endResetModel.connect(self.onTableModelReset)
         # shortcuts
         QShortcut(QtGui.QKeySequence('Ctrl+S'), self).activated.connect(self.skipTrack)
@@ -112,24 +112,44 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def showEvent(self, a0: QtGui.QShowEvent) -> None:
         self.config.onAppShow()
 
+    def locateCurrentFolder(self):
+        if not self.player.now_playing:
+            return
+
+        self.treeView.collapseAll()
+
+        parent = self.treeModel.invisibleRootItem()
+        for word in self.player.now_playing.getFolder().getRelPath(self.library).split("/"):
+            print('searching for word', word)
+            for i in range(parent.rowCount()):
+                child = parent.child(i)
+                if child.text() == word:
+                    print(word, child.index())
+                    self.treeView.expand(child.index())
+                    self.treeView.setCurrentIndex(child.index())
+                    parent = child
+                    break
+        # rootIndex = self.treeModel.index(0, 0)
+        # self.treeView.expand(rootIndex)
+        # print (self.player.now_playing.getFolder().getRelPath(self.library))
+        # if self.treeView.selectedIndexes():
+        #     index = self.treeView.selectedIndexes()[0]
+        #     self.treeView.scrollTo(index)
+            # item = index.model().itemFromIndex(index)
+            # print(item.path)
+            # print(self.treeModel.getDirPath(index))
+
     def expandBtnClick(self):
         if self.expandBtn.isChecked():
+            # Expand root item
             rootIndex = self.treeModel.index(0, 0)
             self.treeView.expand(rootIndex)
-
+            # Expand all childs of root
             for row in range(self.treeModel.rowCount(rootIndex)):
                 index = rootIndex.child(row, 0)
                 self.treeView.expand(index)
         else:
             self.treeView.collapseAll()
-
-    def followTreeViewClick(self):
-        if self.treeView.selectedIndexes():
-            index = self.treeView.selectedIndexes()[0]
-            self.treeView.scrollTo(index)
-            # item = index.model().itemFromIndex(index)
-            # print(item.path)
-            # print(self.treeModel.getDirPath(index))
 
     def goToSearch(self):
         self.searchEdit.setText('')

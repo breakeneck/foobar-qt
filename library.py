@@ -59,6 +59,10 @@ class Folder(database.Model):
     def indexedAttrs(self):
         return ['path']
 
+    def find(self, path):
+        database.db.execute(f'SELECT * FROM {self.tableName} WHERE path = "{path}"')
+        return Folder().load(database.db.fetchone())
+
     def getAll(self):
         database.db.execute(f'SELECT * FROM {self.tableName} ORDER BY path')
         return map(lambda row: Folder().load(row), database.db.fetchall())
@@ -96,6 +100,9 @@ class Track(database.Model):
 
     def getTitle(self):
         return self.artist + ' - ' + self.title
+
+    def getFolder(self):
+        return Folder().find(self.dir_name)
 
     def getAttrValues(self):
         return tuple(self.__dict__.values())
@@ -205,9 +212,21 @@ class Scanner:
 
         try:
             track.artist = file.tag.artist
-            track.title = file.tag.title if file.tag.title else Path(track.basename).stem
+            track.title = file.tag.title  # if file.tag.title else Path(track.basename).stem
             track.album = file.tag.album
         except:
+            if not track.title:
+                basename = Path(track.basename).stem
+                if len(basename.split(' - ')) == 2:
+                    track.artist, track.title = basename.split(' - ')
+                elif len(basename.split('-')) == 2:
+                    track.artist, track.title = basename.split('-')
+                else:
+                    track.title = basename
+                if track.artist[:3].isdigit():
+                    track.artist = track.artist[3:].strip()
+                elif track.artist[:2].isdigit():
+                    track.artist = track.artist[2:].strip()
             print('Tag error for file', full_path)
 
         if not track.artist and not track.title:
