@@ -208,11 +208,12 @@ class Scanner:
             if not track.duration:
                 return
         except:
+            print('Critical error on loading tag')
             return
 
         try:
             track.artist = file.tag.artist
-            track.title = file.tag.title  # if file.tag.title else Path(track.basename).stem
+            track.title = file.tag.title if file.tag.title else Path(track.basename).stem
             track.album = file.tag.album
         except:
             if not track.title:
