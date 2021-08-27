@@ -96,3 +96,6 @@ class Config:
 
     def getLyricsProvider(self):
         return self.config['lyrics_provider']
+
+    def setLyricsProvider(self, text):
+        self.config['lyrics_provider'] = text

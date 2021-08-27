@@ -15,7 +15,7 @@ from lyrics import Lyrics
 
 import qtawesome as qta
 
-from PyQt5.QtCore import Qt, QObject, pyqtSignal
+from PyQt5.QtCore import QThread
 import keyboard
 
 
@@ -59,7 +59,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config = config.Config(self)
         self.library = Library(self.config.getLibraryDirs())
         self.player = Player()
-        self.lyrics = Lyrics(self.config)
+        self.lyrics = Lyrics()
+        self.lyricsThread = QThread(parent=self)
 
         # make post ui setup after library is initialized
         customui.postSetup(self)
@@ -74,7 +75,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def connectEvents(self, app):
         self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
         self.lyricsCombo.activated.connect(self.changeLyricsProvider)
-        self.lyrics.finished.connect(self.updateLyrics)
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(self.rescanLibrary)
         self.settingsBtn.clicked.connect(self.openSettingsDialog)
@@ -197,14 +197,30 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
-            self.lyrics.run(self.player)
-
-    def updateLyrics(self, text):
-        self.lyricsTxt.setText(text)
+            self.findLyrics()
 
     def changeLyricsProvider(self, text):
-        self.lyrics.setProvider(self.lyricsCombo.currentText())
-        self.lyrics.un(self.player)
+        # self.lyrics.setProvider(self.lyricsCombo.currentText())
+        self.config.setLyricsProvider(self.lyricsCombo.currentText())
+        self.findLyrics()
+
+    def findLyrics(self):
+        if isinstance(self.lyricsThread, QThread):
+            self.lyricsThread.quit()
+            # self.lyricsThread.wait()
+        self.lyricsThread = QThread(parent=self)
+        # Step 3: Create a worker object
+        self.lyrics = Lyrics()
+        self.lyrics.setConfig(self.config, self.player)
+        self.lyrics.moveToThread(self.lyricsThread)
+        # Step 5: Connect signals and slots
+        self.lyricsThread.started.connect(self.lyrics.run)
+        self.lyrics.finished.connect(lambda text: self.lyricsTxt.setText(text))
+        # self.lyrics.finished.connect(self.lyrics.quit)
+        self.lyrics.finished.connect(self.lyrics.deleteLater)
+        self.lyricsThread.finished.connect(self.lyricsThread.deleteLater)
+        # Step 6: Start the thread
+        self.lyricsThread.start()
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()

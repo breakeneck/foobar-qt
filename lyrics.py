@@ -19,29 +19,31 @@ class Lyrics(QObject):
     provider: 0
 
     genius: lyricsgenius.Genius
-    config: None
 
-    def __init__(self, config):
-        super().__init__()
+    config: None
+    player: None
+
+    def setConfig(self, config, player):
         self.config = config
+        self.player = player
         self.initProviders()
         self.setProvider(self.DEFAULT_PROVIDER if config.getLyricsProvider() == '' else config.getLyricsProvider())
 
     def initProviders(self):
         self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
 
-    def run(self, player):
+    def run(self):
         try:
             if self.provider == self.PROVIDER_GENIUS:
-                song = self.genius.search_song(player.now_playing.title, player.now_playing.artist)
+                song = self.genius.search_song(self.player.now_playing.title, self.player.now_playing.artist)
                 self.finished.emit(song.lyrics)
             elif self.provider == self.PROVIDER_LYRICSWIKIA:
-                self.finished.emit(lyricwikia.get_lyrics(player.now_playing.artist, player.now_playing.title))
+                self.finished.emit(lyricwikia.get_lyrics(self.player.now_playing.artist, self.player.now_playing.title))
             elif self.provider == self.PROVIDER_PYLYRICS:
-                self.finished.emit(PyLyrics.getLyrics(player.now_playing.artist, player.now_playing.title))
+                self.finished.emit(PyLyrics.getLyrics(self.player.now_playing.artist, self.player.now_playing.title))
 
         except Exception as e:
-            self.finished.emit(player.now_playing.artist + ': ' + player.now_playing.title + '\n' \
+            self.finished.emit(self.player.now_playing.artist + ': ' + self.player.now_playing.title + '\n' \
                    + self.provider + ' server error: ' + str(e))
 
     def setProvider(self, name):
