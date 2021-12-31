@@ -129,6 +129,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                     self.treeView.setCurrentIndex(child.index())
                     parent = child
                     break
+
+        self.treeViewClick(parent.index())
+        self.selectCurrentTrack()
         # rootIndex = self.treeModel.index(0, 0)
         # self.treeView.expand(rootIndex)
         # print (self.player.now_playing.getFolder().getRelPath(self.library))
