@@ -8,7 +8,8 @@ DB_NAME = 'db.sqlite3'
 # db: sqlite3.Cursor
 
 connection: apsw.Connection
-db: apsw.Cursor
+db: apsw.Connection
+# Cursor
 
 def connect():
     global connection, db
