@@ -43,7 +43,7 @@ class Lyrics(QObject):
                 self.finished.emit(PyLyrics.getLyrics(self.player.now_playing.artist, self.player.now_playing.title))
 
         except Exception as e:
-            self.finished.emit(self.player.now_playing.artist + ': ' + self.player.now_playing.title + '\n' \
+            self.finished.emit(str(self.player.now_playing.artist) + ': ' + str(self.player.now_playing.title) + '\n' \
                    + self.provider + ' server error: ' + str(e))
 
     def setProvider(self, name):
