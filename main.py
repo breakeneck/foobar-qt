@@ -224,6 +224,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.selectCurrentTrack()
             self.updatePlayStatus()
             self.findLyrics()
+            self.lastfm.updateNowPlaying(self.player.now_playing.artist, self.player.now_playing.title)
 
     def changeLyricsProvider(self, text):
         # self.lyrics.setProvider(self.lyricsCombo.currentText())

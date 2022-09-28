@@ -11,14 +11,19 @@ class LastFM:
     def __init__(self, config):
         self.config = config
 
-    def scrobble(self, artist, title):
-        # print('Scrobbling', artist, ': ', title)
-        pylast.LastFMNetwork(
+    def getNetwork(self):
+        return pylast.LastFMNetwork(
             api_key=API_KEY,
             api_secret=API_SECRET,
             username=self.config.getLastFmUsername(),
             password_hash=pylast.md5(self.config.getLastFmPassword()),
-        ).scrobble(artist, title, time.time())
+        )
+
+    def updateNowPlaying(self, artist, title):
+        self.getNetwork().update_now_playing(artist, title)
+
+    def scrobble(self, artist, title):
+        self.getNetwork().scrobble(artist, title, time.time())
 
 # Now you can use that object everywhere
 # track = network.get_track("Iron Maiden", "The Nomad")
