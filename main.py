@@ -1,5 +1,6 @@
 import sys
 import time
+import json
 
 from PyQt5 import QtWidgets, QtCore, Qt, QtGui
 from PyQt5.QtWidgets import QShortcut
@@ -8,6 +9,7 @@ from PyQt5.Qt import QIcon
 import config
 import design
 import customui
+from lastfm import LastFM
 from dialogs import SettingsDialog
 from library import Library, Track
 from player import Player
@@ -60,6 +62,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.library = Library(self.config.getLibraryDirs())
         self.player = Player()
         self.lyrics = Lyrics()
+        self.lastfm = LastFM(self.config)
         self.lyricsThread = QThread(parent=self)
 
         # make post ui setup after library is initialized
@@ -292,6 +295,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.posSlider.setValue(media_pos)
         # No need to call this function if nothing is played
         if not self.player.mediaplayer.is_playing():
+            self.lastfm.scrobble(self.player.now_playing.artist, self.player.now_playing.title)
+            # End of track reached
             if self.stopAfterBtn.isChecked():
                 self.stopAfterBtn.setChecked(False)
                 self.stop()
@@ -319,12 +324,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         dialog = SettingsDialog(self)
         dialog.confirmed.connect(self.saveSettingsFromDialog)
         dialog.geniusToken.setText(self.config.getLyricsGeniusToken())
+        dialog.lastFmUsername.setText(self.config.getLastFmUsername())
+        dialog.lastFmPassword.setText(self.config.getLastFmPassword())
         dialog.exec()
 
-    def saveSettingsFromDialog(self, token):
-        print('token = ' + token)
-        self.config.updateLyricsGeniusToken(token)
-        self.lyrics.onChangeTokens()
+    def saveSettingsFromDialog(self, values):
+        # print('token = ' + token)
+        self.config.saveDialogData(json.loads(values))
+        # self.lyrics.onChangeTokens()
 
     def setVolume(self, volume):
         self.player.setVolume(volume)

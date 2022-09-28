@@ -1,6 +1,6 @@
 from PyQt5 import QtWidgets, QtCore
 from dialog import Ui_Dialog
-
+import json
 
 class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
     confirmed = QtCore.pyqtSignal(str)
@@ -14,6 +14,6 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
 
     def confirm(self):
         self.close()
-        value = self.geniusToken.text()
-        print('entered value: %s' % value)
-        self.confirmed.emit(value)  # emit the signal, passing the text as its only argument
+        genius_token, lastfm_username, lastfm_password = self.geniusToken.text(), self.lastFmUsername.text(), self.lastFmPassword.text()
+        # print('entered values are: %s, %s, %s' % genius_token, lastfm_key, lastfm_secret)
+        self.confirmed.emit(json.dumps((genius_token, lastfm_username, lastfm_password)))  # emit the signal, passing the text as its only argument

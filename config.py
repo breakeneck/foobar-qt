@@ -95,8 +95,17 @@ class Config:
     def getLyricsGeniusToken(self):
         return self.config['lyrics_genius_token'] if 'lyrics_genius_token' in self.config else ''
 
-    def updateLyricsGeniusToken(self, token):
-        self.config['lyrics_genius_token'] = token
+    def getLastFmUsername(self):
+        return self.config['lastfm_username'] if 'lastfm_username' in self.config else ''
+
+    def getLastFmPassword(self):
+        return self.config['lastfm_password'] if 'lastfm_password' in self.config else ''
+
+    def saveDialogData(self, values):
+        lyrics_genius_token, lastfm_username, lastfm_password = values
+        self.config['lyrics_genius_token'] = lyrics_genius_token
+        self.config['lastfm_username'] = lastfm_username
+        self.config['lastfm_password'] = lastfm_password
         self.save()
 
     def getLyricsProvider(self):
