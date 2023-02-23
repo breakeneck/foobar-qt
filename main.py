@@ -224,7 +224,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.selectCurrentTrack()
             self.updatePlayStatus()
             self.findLyrics()
-            self.lastfm.updateNowPlaying(self.player.now_playing.artist, self.player.now_playing.title)
+            try:
+                self.lastfm.updateNowPlaying(self.player.now_playing.artist, self.player.now_playing.title)
+            except Exception as e:
+                print(str(e))
 
     def changeLyricsProvider(self, text):
         # self.lyrics.setProvider(self.lyricsCombo.currentText())
@@ -296,7 +299,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.posSlider.setValue(media_pos)
         # No need to call this function if nothing is played
         if not self.player.mediaplayer.is_playing():
-            self.lastfm.scrobble(self.player.now_playing.artist, self.player.now_playing.title)
+            try:
+                self.lastfm.scrobble(self.player.now_playing.artist, self.player.now_playing.title)
+            except Exception as e:
+                print(str(e))
             # End of track reached
             if self.stopAfterBtn.isChecked():
                 self.stopAfterBtn.setChecked(False)
