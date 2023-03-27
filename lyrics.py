@@ -1,6 +1,8 @@
 import lyricwikia
 from PyLyrics import *
 import lyricsgenius
+import re
+
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
@@ -33,14 +35,16 @@ class Lyrics(QObject):
         self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
 
     def run(self):
+        artist = re.sub(r"\(.*?\)", "", self.player.now_playing.artist)
+        title = re.sub(r"\(.*?\)", "", self.player.now_playing.title)
         try:
             if self.provider == self.PROVIDER_GENIUS:
-                song = self.genius.search_song(self.player.now_playing.title, self.player.now_playing.artist)
+                song = self.genius.search_song(title, artist)
                 self.finished.emit(song.lyrics)
             elif self.provider == self.PROVIDER_LYRICSWIKIA:
-                self.finished.emit(lyricwikia.get_lyrics(self.player.now_playing.artist, self.player.now_playing.title))
+                self.finished.emit(lyricwikia.get_lyrics(artist, title))
             elif self.provider == self.PROVIDER_PYLYRICS:
-                self.finished.emit(PyLyrics.getLyrics(self.player.now_playing.artist, self.player.now_playing.title))
+                self.finished.emit(PyLyrics.getLyrics(artist, title))
 
         except Exception as e:
             self.finished.emit(str(self.player.now_playing.artist) + ': ' + str(self.player.now_playing.title) + '\n' \
