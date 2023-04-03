@@ -275,7 +275,7 @@ class TableModel(QtCore.QAbstractTableModel):
         return False
 
     def getNextIndex(self):
-        while self.player.now_playing_row < len(self.tracks):
+        while self.player.now_playing_row < len(self.tracks) - 1:
             self.player.now_playing_row += 1
 
             item = self.tracks[self.player.now_playing_row]

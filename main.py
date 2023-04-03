@@ -256,6 +256,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         nextIndex = self.tableModel.getNextIndex()
         if nextIndex:
             self.play(nextIndex)
+            self.selectCurrentTrack()
         else:
             self.stop()
 
