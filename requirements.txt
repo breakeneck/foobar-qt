@@ -5,6 +5,7 @@ qtawesome~=1.0.2
 PyLyrics~=1.1.0
 lyricsgenius~=2.0.2
 keyboard~=0.13.5
-apsw
+apsw~=3.42.0.0
 python-vlc
 setuptools~=49.2.1
+pylast~=5.1.0
