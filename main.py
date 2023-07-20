@@ -232,7 +232,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def changeLyricsProvider(self, text):
         # self.lyrics.setProvider(self.lyricsCombo.currentText())
         self.config.setLyricsProvider(self.lyricsCombo.currentText())
-        self.findLyrics()
+        if self.player.now_playing:
+            self.findLyrics()
 
     def findLyrics(self):
         if isinstance(self.lyricsThread, QThread):
