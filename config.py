@@ -20,6 +20,7 @@ class Config:
                 "window": [233, 181, 1067, 631],
                 "splitter": [246, 519, 276],
                 "library_dir": "~/Music",
+                "library_dirs": [],
                 "selected_dir": "",
                 "selected_dir_row": -1,
                 "column_sizes": [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
@@ -33,8 +34,34 @@ class Config:
                 "treeview_path": "",
             }
 
+        self._migrate_dirs()
+
+    def _migrate_dirs(self):
+        if "library_dirs" not in self.config or not self.config["library_dirs"]:
+            old_dir = self.config.get("library_dir", "")
+            if old_dir:
+                expanded = os.path.expanduser(old_dir)
+                self.config["library_dirs"] = [expanded]
+                self.config["library_dir"] = expanded
+        else:
+            # Clean up library_dirs: remove non-existent local paths
+            valid_dirs = []
+            from virtualfs import is_sftp_path
+
+            for d in self.config["library_dirs"]:
+                if is_sftp_path(d):
+                    valid_dirs.append(d)
+                elif os.path.isdir(d):
+                    valid_dirs.append(d)
+                else:
+                    print("Skipping non-existent library dir: %s" % d)
+            self.config["library_dirs"] = valid_dirs
+            if valid_dirs:
+                self.config["library_dir"] = valid_dirs[0]
+            else:
+                self.config["library_dir"] = ""
+
     def load(self, app: QApplication):
-        # print(self.config)
         app.setStyle(self.config["theme"])
         self.w.themeCombo.setCurrentIndex(
             self.w.themeCombo.findText(self.config["theme"])
@@ -103,19 +130,41 @@ class Config:
 
     def updateLibraryDir(self, directory):
         self.config["library_dir"] = directory
-        # self.save()
+        if isinstance(directory, str):
+            self.config["library_dirs"].append(directory)
+
+    def addLibraryDir(self, directory):
+        if directory and directory not in self.config["library_dirs"]:
+            self.config["library_dirs"].append(directory)
+            if not self.config["library_dir"]:
+                self.config["library_dir"] = directory
+
+    def removeLibraryDir(self, directory):
+        if directory in self.config["library_dirs"]:
+            self.config["library_dirs"].remove(directory)
+
+    def getLibraryDirsList(self):
+        return self.config.get("library_dirs", [])
 
     def updateSelectedDir(self, directory, row):
         self.config["selected_dir"] = directory
         self.config["selected_dir_row"] = row
-        # self.save()
 
     def getLibraryDirs(self):
-        return (
-            self.config["library_dir"],
-            self.config["selected_dir"],
-            self.config["selected_dir_row"],
-        )
+        dirs = self.config.get("library_dirs", [])
+        if not dirs:
+            return (
+                self.config["library_dir"],
+                self.config["selected_dir"],
+                self.config["selected_dir_row"],
+            )
+        if len(dirs) == 1:
+            return (
+                dirs[0],
+                self.config["selected_dir"],
+                self.config["selected_dir_row"],
+            )
+        return dirs
 
     def getLyricsGeniusToken(self):
         return (

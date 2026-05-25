@@ -9,7 +9,6 @@ from player import Player
 
 
 def postSetup(main):
-    # add invisible elements
     main.timer = QtCore.QTimer(main)
     main.treeModel = TreeModel(main)
     main.treeModel.setLibrary(main.library)
@@ -17,9 +16,7 @@ def postSetup(main):
     main.tableModel.setLibrary(main.library)
     main.tableModel.setPlayer(main.player)
     main.statusbar = StatusBar()
-    # update qtDesigner non available properties
     main.timer.setInterval(100)
-    # design updates
     main.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
     main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
     main.playBtn.setIcon(qta.icon("mdi.play"))
@@ -33,129 +30,20 @@ def postSetup(main):
     main.expandBtn.setIcon(qta.icon("mdi.arrow-expand-vertical"))
     main.settingsBtn.setIcon(qta.icon("mdi.cog"))
     main.followTreeView.setIcon(qta.icon("mdi.circle"))
-
-    # main.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(main, 'Message', 'Track "' + main.getSelectedTrack().getTitle() + '" will be skipped')))
     main.posSlider.setMaximum(1000)
-    # load Directory tree
     main.treeView.setModel(main.treeModel)
-    # load Tracks
     main.tableView.setModel(main.tableModel)
     main.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-    # my custom statusbar
     main.statusbar.setObjectName("statusbar")
     main.setStatusBar(main.statusbar)
-    # statusbar widgets
     main.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, main)
     main.volumeSlider.setMaximum(100)
     main.volumeSlider.setValue(main.player.getVolume())
     main.volumeSlider.setToolTip("Volume")
     main.volumeSlider.setFixedWidth(100)
     main.statusbar.addPermanentWidget(main.volumeSlider)
-    # search edit params
     main.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
     main.tableView.setFocusPolicy(QtCore.Qt.StrongFocus)
-
-
-class TreeWidget(QtWidgets.QTreeWidget):
-    currentTextChanged = QtCore.pyqtSignal(str)
-
-    def __init__(self, parent=None):
-        super(TreeWidget, self).__init__(parent)
-        self.currentItemChanged.connect(self.onCurrentItemChanged)
-        self.setHeaderLabel("Standard Section Library")
-        self.setRootIsDecorated(True)
-        self.setAlternatingRowColors(True)
-        self.readSettings()
-        self.expandAll()
-
-    def onCurrentItemChanged(self, current, previous):
-        if current not in [
-            self.topLevelItem(ix) for ix in range(self.topLevelItemCount())
-        ]:
-            self.currentTextChanged.emit(current.text(0))
-
-    def readSettings(self):
-        settings = QtCore.QSettings()
-        settings.beginGroup("TreeWidget")
-        values = settings.value("items")
-        if values is None:
-            self.loadDefault()
-        else:
-            TreeWidget.dataToChild(values, self.invisibleRootItem())
-            self.customized_item = None
-            for ix in range(self.topLevelItemCount()):
-                tlevel_item = self.topLevelItem(ix)
-                if tlevel_item.text(0) == "Customized":
-                    self.customized_item = tlevel_item
-        settings.endGroup()
-
-    def writeSettings(self):
-        settings = QtCore.QSettings()
-        settings.beginGroup("TreeWidget")
-        settings.setValue("items", TreeWidget.dataFromChild(self.invisibleRootItem()))
-        settings.endGroup()
-
-    def loadDefault(self):
-        standardsectionlist = [
-            "D100",
-            "D150",
-            "D200",
-            "D250",
-            "D300",
-            "D350",
-            "D400",
-            "D450",
-            "D500",
-            "D550",
-            "D600",
-            "D650",
-            "D700",
-            "D750",
-            "D800",
-            "D850",
-            "D900",
-            "D950",
-            "D1000",
-        ]
-        rootItem = QtWidgets.QTreeWidgetItem(self, ["Circular shapes"])
-        # rootItem.setIcon(0, QtGui.QIcon(os.path.join(iconroot, "images/circularcolumnnorebar.png")))
-        for element in standardsectionlist:
-            rootItem.addChild(QtWidgets.QTreeWidgetItem([element]))
-
-        self.customized_item = QtWidgets.QTreeWidgetItem(self, ["Customized"])
-        # self.customized_item.setIcon(0, QtGui.QIcon(os.path.join(iconroot, "images/circularcolumnnorebar.png")))
-
-    @staticmethod
-    def dataToChild(info, item):
-        TreeWidget.tupleToItem(info["data"], item)
-        for val in info["childrens"]:
-            child = QtWidgets.QTreeWidgetItem()
-            item.addChild(child)
-            TreeWidget.dataToChild(val, child)
-
-    @staticmethod
-    def tupleToItem(t, item):
-        # set values to item
-        ba, isSelected = t
-        ds = QtCore.QDataStream(ba)
-        ds >> item
-        item.setSelected(isSelected)
-
-    @staticmethod
-    def dataFromChild(item):
-        l = []
-        for i in range(item.childCount()):
-            child = item.child(i)
-            l.append(TreeWidget.dataFromChild(child))
-        return {"childrens": l, "data": TreeWidget.itemToTuple(item)}
-
-    @staticmethod
-    def itemToTuple(item):
-        # return values from item
-        ba = QtCore.QByteArray()
-        ds = QtCore.QDataStream(ba, QtCore.QIODevice.WriteOnly)
-        ds << item
-        return ba, item.isSelected()
 
 
 class TreeModel(QtGui.QStandardItemModel):
@@ -168,12 +56,41 @@ class TreeModel(QtGui.QStandardItemModel):
     def setLibrary(self, library):
         self.library = library
 
+    def _split_tree_path(self, path):
+        """
+        Split a tree path into node names, handling SFTP paths like 'ha://music'.
+
+        'ha://music'.split('/')  -> ['ha:', '', 'music']
+        'ha://music/Artist'      -> ['ha:', '', 'music', 'Artist']
+
+        We want:
+          'ha://music'            -> ['ha://music']
+          'ha://music/Artist'     -> ['ha://music', 'Artist']
+          'ha://music/A/B'        -> ['ha://music', 'A', 'B']
+
+        Local paths work normally:
+          'Music/Artist'          -> ['Music', 'Artist']
+        """
+        parts = path.split("/")
+        if len(parts) >= 2 and ":" in parts[0]:
+            scheme = parts[0]
+            i = 1
+            while i < len(parts) and not parts[i]:
+                i += 1
+            if i < len(parts):
+                slashes = "/" * i
+                merged = scheme + slashes + parts[i]
+                parts = [merged] + parts[i + 1 :]
+            else:
+                parts = [scheme]
+        return [p for p in parts if p]
+
     def loadTreeData(self, treeView: QtWidgets.QTreeView):
         self.clear()
 
         for folder in Folder().getAll():
             parent = self.invisibleRootItem()
-            for word in folder.getRelPath(self.library).split("/"):
+            for word in self._split_tree_path(folder.getRelPath(self.library)):
                 for i in range(parent.rowCount()):
                     child = parent.child(i)
                     if child.text() == word:
@@ -259,13 +176,9 @@ class TableModel(QtCore.QAbstractTableModel):
                 font = QtGui.QFont()
                 font.setStrikeOut(True)
                 return font
-        # } else if (role == Qt::ForegroundRole & & index.column() == 0) {
-        # return QColor(Qt::red);
-        # }
         if role != QtCore.Qt.ItemDataRole.DisplayRole:
             return None
         return self.rows[index.row()][index.column()]
-        # return self.tracks[index.row()][index.column()]
 
     def headerData(self, section, orientation, role=None):
         if (
@@ -310,7 +223,7 @@ class TableModel(QtCore.QAbstractTableModel):
         return False
 
     def getPrevIndex(self):
-        self.getNowPlayIndex()  # Refresh self.player.now_playing_row
+        self.getNowPlayIndex()
         if not self.getPrevRow():
             return False
 

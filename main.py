@@ -11,56 +11,26 @@ from PyQt6.QtGui import QIcon, QShortcut
 import config
 import customui
 import design
-from dialogs import SettingsDialog
+from dialogs import AddLibraryDirDialog, SettingsDialog
 from lastfm import LastFM
 from library import Library, Track
 from lyrics import Lyrics
 from player import Player
-
-# class Hotkey(QObject):
-#     signal = pyqtSignal()
-#
-#     def connect(self, event):
-#         self.signal.connect(event)
-#
-#     def listen(self, key):
-#         keyboard.add_hotkey(key, self.signal.emit, suppress=True)
-
-
-# class Hotkeys:
-#     def __init__(self, app):
-#         self.app = app
-#     def map(self, hotkeysMapping):
-#         for shortcut, event in hotkeysMapping.items():
-#             hotkey = Hotkey(self.app)
-#             hotkey.connect(event)
-#             hotkey.listen(shortcut)
-
-# class Hotkey(QObject):
-#     hotkeys = {}
-#
-#     def __init__(self, shortcutsMapping):
-#         for key, event in shortcutsMapping.items():
-#             self.hotkeys[key] = Hotkey()
-#
-#         for key, event in shortcutsMapping.items():
-#             self.hotkeys[key].connect(event)
-#             keyboard.add_hotkey(key, self.hotkeys[key].emit, suppress=True)
+from sftp import get_sftp_manager
 
 
 class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def __init__(self, app):
         super().__init__()
-        self.setupUi(self)  # Это нужно для инициализации нашего дизайна
+        self.setupUi(self)
 
         # config loading
         self.config = config.Config(self)
         self.library = Library(self.config.getLibraryDirs())
         self.player = Player()
         self.lyrics = Lyrics()
+        self.lyricsThread = None
         self.lastfm = LastFM(self.config)
-        self.lyricsThread = QThread()
-        self.lyricsThread.setParent(self)
 
         # make post ui setup after library is initialized
         customui.postSetup(self)
@@ -86,7 +56,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.nextRndBtn.clicked.connect(self.nextRnd)
         self.searchEdit.textChanged.connect(self.searchChanged)
         self.searchEdit.returnPressed.connect(self.stopAndPlay)
-        # self.searchEdit.keyPressEvent.connect(self.searchEditKeyPress)
         self.searchClearBtn.clicked.connect(self.searchClear)
         self.treeView.clicked.connect(self.treeViewClick)
         self.tableView.doubleClicked.connect(self.play)
@@ -99,7 +68,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.expandBtn.clicked.connect(self.expandBtnClick)
         self.volumeSlider.valueChanged.connect(self.setVolume)
         self.followTreeView.clicked.connect(self.locateCurrentFolder)
-        # self.tableModel.endResetModel.connect(self.onTableModelReset)
         # shortcuts
         QShortcut(QtGui.QKeySequence("Ctrl+S"), self).activated.connect(self.skipTrack)
         QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(
@@ -109,11 +77,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.showMinimized
         )
         QShortcut(QtGui.QKeySequence("Ctrl+F"), self).activated.connect(self.goToSearch)
-
-        # self.hotkeys = Hotkeys(self)
-        # self.hotkeys.map({
-        #     'F1': self.playBtnClick
-        # })
 
     def showEvent(self, a0: QtGui.QShowEvent) -> None:
         self.config.onAppShow()
@@ -140,22 +103,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         self.treeViewClick(parent.index())
         self.selectCurrentTrack()
-        # rootIndex = self.treeModel.index(0, 0)
-        # self.treeView.expand(rootIndex)
-        # print (self.player.now_playing.getFolder().getRelPath(self.library))
-        # if self.treeView.selectedIndexes():
-        #     index = self.treeView.selectedIndexes()[0]
-        #     self.treeView.scrollTo(index)
-        # item = index.model().itemFromIndex(index)
-        # print(item.path)
-        # print(self.treeModel.getDirPath(index))
 
     def expandBtnClick(self):
         if self.expandBtn.isChecked():
-            # Expand root item
             rootIndex = self.treeModel.index(0, 0)
             self.treeView.expand(rootIndex)
-            # Expand all childs of root
             for row in range(self.treeModel.rowCount(rootIndex)):
                 index = rootIndex.child(row, 0)
                 self.treeView.expand(index)
@@ -168,9 +120,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         self.library.selected_dir_row = index.row()
-        self.library.selected_dir = self.treeModel.itemFromIndex(
-            index
-        ).dbModel.path  # self.treeModel.getDirPath(index)
+        self.library.selected_dir = self.treeModel.itemFromIndex(index).dbModel.path
         self.config.updateSelectedDir(
             self.library.selected_dir, self.library.selected_dir_row
         )
@@ -243,28 +193,29 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 print(str(e))
 
     def changeLyricsProvider(self, text):
-        # self.lyrics.setProvider(self.lyricsCombo.currentText())
         self.config.setLyricsProvider(self.lyricsCombo.currentText())
         if self.player.now_playing:
             self.findLyrics()
 
     def findLyrics(self):
-        if isinstance(self.lyricsThread, QThread):
+        # Stop the previous lyrics thread properly
+        if self.lyricsThread is not None:
             self.lyricsThread.quit()
-            # self.lyricsThread.wait()
-        self.lyricsThread = QThread()
-        self.lyricsThread.setParent(self)
-        # Step 3: Create a worker object
+            self.lyricsThread.wait(500)  # Give it time to finish
+            self.lyricsThread.deleteLater()
+            self.lyricsThread = None
+
+        self.lyricsThread = QThread(self)
         self.lyrics = Lyrics()
         self.lyrics.setConfig(self.config, self.player)
         self.lyrics.moveToThread(self.lyricsThread)
-        # Step 5: Connect signals and slots
+
+        # Connect signals before starting the thread
         self.lyricsThread.started.connect(self.lyrics.run)
         self.lyrics.finished.connect(lambda text: self.lyricsTxt.setText(text))
-        # self.lyrics.finished.connect(self.lyrics.quit)
         self.lyrics.finished.connect(self.lyrics.deleteLater)
         self.lyricsThread.finished.connect(self.lyricsThread.deleteLater)
-        # Step 6: Start the thread
+
         self.lyricsThread.start()
 
     def next(self):
@@ -299,10 +250,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         )
 
     def browseDirClick(self):
-        newDir = QtWidgets.QFileDialog.getExistingDirectory(self)
-        if newDir:
-            self.config.updateLibraryDir(newDir)
-            self.library.updateDirs([newDir, "", -1])
+        dialog = AddLibraryDirDialog(self)
+        dialog.confirmed.connect(self.onDirAdded)
+        dialog.exec()
+
+    def onDirAdded(self, directory):
+        if directory:
+            self.config.addLibraryDir(directory)
+            self.library.addDir(directory)
             self.rescanLibrary()
             self.config.save()
 
@@ -314,9 +269,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def updatePos(self):
         media_pos = int(self.player.mediaplayer.get_position() * 1000)
-        # print('mediapos', media_pos)
         self.posSlider.setValue(media_pos)
-        # No need to call this function if nothing is played
         if not self.player.mediaplayer.is_playing():
             try:
                 self.lastfm.scrobble(
@@ -324,7 +277,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 )
             except Exception as e:
                 print(str(e))
-            # End of track reached
             if self.stopAfterBtn.isChecked():
                 self.stopAfterBtn.setChecked(False)
                 self.stop()
@@ -346,7 +298,6 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 track.updateAttr("skipped")
                 self.tableModel.tracks[index] = track
         self.tableModel.refreshPlaylist(self.searchEdit.text())
-        # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
 
     def openSettingsDialog(self):
         dialog = SettingsDialog(self)
@@ -357,9 +308,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         dialog.exec()
 
     def saveSettingsFromDialog(self, values):
-        # print('token = ' + token)
         self.config.saveDialogData(json.loads(values))
-        # self.lyrics.onChangeTokens()
 
     def setVolume(self, volume):
         self.player.setVolume(volume)
@@ -373,18 +322,26 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.tableView.setSpan(row, 0, 1, Track.colCount())
 
     def closeEvent(self, event):
+        # Stop lyrics thread before closing
+        if self.lyricsThread is not None:
+            self.lyricsThread.quit()
+            self.lyricsThread.wait(500)
+            self.lyricsThread.deleteLater()
+            self.lyricsThread = None
+
+        get_sftp_manager().close_all()
         self.config.save()
         event.accept()
 
 
 def main():
-    app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
+    app = QtWidgets.QApplication(sys.argv)
 
-    window = FooQt(app)  # Создаём объект класса ExampleApp
+    window = FooQt(app)
     window.setWindowIcon(QIcon("musical-note.png"))
-    window.show()  # Показываем окно
-    app.exec()  # и запускаем приложение
+    window.show()
+    app.exec()
 
 
-if __name__ == "__main__":  # Если мы запускаем файл напрямую, а не импортируем
-    main()  # то запускаем функцию main()
+if __name__ == "__main__":
+    main()
