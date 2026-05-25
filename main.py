@@ -1,25 +1,21 @@
+import json
 import sys
 import time
-import json
 
-from PyQt5 import QtWidgets, QtCore, Qt, QtGui
-from PyQt5.QtWidgets import QShortcut
-from PyQt5.Qt import QIcon
+import keyboard
+import qtawesome as qta
+from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtCore import QThread
+from PyQt6.QtGui import QIcon, QShortcut
 
 import config
-import design
 import customui
-from lastfm import LastFM
+import design
 from dialogs import SettingsDialog
+from lastfm import LastFM
 from library import Library, Track
-from player import Player
 from lyrics import Lyrics
-
-import qtawesome as qta
-
-from PyQt5.QtCore import QThread
-import keyboard
-
+from player import Player
 
 # class Hotkey(QObject):
 #     signal = pyqtSignal()
@@ -63,7 +59,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.player = Player()
         self.lyrics = Lyrics()
         self.lastfm = LastFM(self.config)
-        self.lyricsThread = QThread(parent=self)
+        self.lyricsThread = QThread()
+        self.lyricsThread.setParent(self)
 
         # make post ui setup after library is initialized
         customui.postSetup(self)
@@ -76,7 +73,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.treeModel.loadTreeData(self.treeView)
 
     def connectEvents(self, app):
-        self.themeCombo.activated.connect(lambda: app.setStyle(self.themeCombo.currentText()))
+        self.themeCombo.activated.connect(
+            lambda: app.setStyle(self.themeCombo.currentText())
+        )
         self.lyricsCombo.activated.connect(self.changeLyricsProvider)
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(self.rescanLibrary)
@@ -102,10 +101,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.followTreeView.clicked.connect(self.locateCurrentFolder)
         # self.tableModel.endResetModel.connect(self.onTableModelReset)
         # shortcuts
-        QShortcut(QtGui.QKeySequence('Ctrl+S'), self).activated.connect(self.skipTrack)
-        QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(self.playBtnClick)
-        QShortcut(QtGui.QKeySequence('Ctrl+H'), self).activated.connect(self.showMinimized)
-        QShortcut(QtGui.QKeySequence('Ctrl+F'), self).activated.connect(self.goToSearch)
+        QShortcut(QtGui.QKeySequence("Ctrl+S"), self).activated.connect(self.skipTrack)
+        QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(
+            self.playBtnClick
+        )
+        QShortcut(QtGui.QKeySequence("Ctrl+H"), self).activated.connect(
+            self.showMinimized
+        )
+        QShortcut(QtGui.QKeySequence("Ctrl+F"), self).activated.connect(self.goToSearch)
 
         # self.hotkeys = Hotkeys(self)
         # self.hotkeys.map({
@@ -122,8 +125,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.treeView.collapseAll()
 
         parent = self.treeModel.invisibleRootItem()
-        for word in self.player.now_playing.getFolder().getRelPath(self.library).split("/"):
-            print('searching for word', word)
+        for word in (
+            self.player.now_playing.getFolder().getRelPath(self.library).split("/")
+        ):
+            print("searching for word", word)
             for i in range(parent.rowCount()):
                 child = parent.child(i)
                 if child.text() == word:
@@ -141,9 +146,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # if self.treeView.selectedIndexes():
         #     index = self.treeView.selectedIndexes()[0]
         #     self.treeView.scrollTo(index)
-            # item = index.model().itemFromIndex(index)
-            # print(item.path)
-            # print(self.treeModel.getDirPath(index))
+        # item = index.model().itemFromIndex(index)
+        # print(item.path)
+        # print(self.treeModel.getDirPath(index))
 
     def expandBtnClick(self):
         if self.expandBtn.isChecked():
@@ -158,16 +163,20 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.treeView.collapseAll()
 
     def goToSearch(self):
-        self.searchEdit.setText('')
+        self.searchEdit.setText("")
         self.searchEdit.setFocus()
 
     def treeViewClick(self, index: QtCore.QModelIndex):
         self.library.selected_dir_row = index.row()
-        self.library.selected_dir = self.treeModel.itemFromIndex(index).dbModel.path  # self.treeModel.getDirPath(index)
-        self.config.updateSelectedDir(self.library.selected_dir, self.library.selected_dir_row)
+        self.library.selected_dir = self.treeModel.itemFromIndex(
+            index
+        ).dbModel.path  # self.treeModel.getDirPath(index)
+        self.config.updateSelectedDir(
+            self.library.selected_dir, self.library.selected_dir_row
+        )
         self.searchChanged()
 
-    def keyPressEvent(self, e):
+    def keyPressEvent(self, e: QtGui.QKeyEvent):
         if e.key() == QtCore.Qt.Key_Escape:
             self.searchClear()
         pass
@@ -176,7 +185,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
 
     def searchClear(self):
-        self.searchEdit.setText('')
+        self.searchEdit.setText("")
         self.selectCurrentTrack()
         self.tableView.setFocus()
 
@@ -185,7 +194,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.updatePlayStatus()
 
     def updatePlayStatus(self):
-        icon = qta.icon('fa.play') if self.player.isNoMusic() else qta.icon('fa.pause')
+        icon = (
+            qta.icon("mdi.play") if self.player.isNoMusic() else qta.icon("mdi.pause")
+        )
         self.playBtn.setIcon(icon)
         if self.player.isNoMusic():
             self.timer.stop()
@@ -198,7 +209,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if currentIndex is not False:
             self.tableView.setCurrentIndex(currentIndex)
         else:
-            print('can\'t move to current index, because its false')
+            print("can't move to current index, because its false")
 
     def stopAndPlay(self):
         self.player.stop()
@@ -217,7 +228,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
-            return print('No item selected')
+            return print("No item selected")
 
         track = self.player.play(index.row(), self.tableModel.tracks[index.row()])
         if track:
@@ -225,7 +236,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.updatePlayStatus()
             self.findLyrics()
             try:
-                self.lastfm.updateNowPlaying(self.player.now_playing.artist, self.player.now_playing.title)
+                self.lastfm.updateNowPlaying(
+                    self.player.now_playing.artist, self.player.now_playing.title
+                )
             except Exception as e:
                 print(str(e))
 
@@ -239,7 +252,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if isinstance(self.lyricsThread, QThread):
             self.lyricsThread.quit()
             # self.lyricsThread.wait()
-        self.lyricsThread = QThread(parent=self)
+        self.lyricsThread = QThread()
+        self.lyricsThread.setParent(self)
         # Step 3: Create a worker object
         self.lyrics = Lyrics()
         self.lyrics.setConfig(self.config, self.player)
@@ -279,13 +293,16 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         start_time = time.time()
         self.library.rescan()
         self.treeModel.loadTreeData(self.treeView)
-        print("--- Library scan is completed in %s seconds ---" % (time.time() - start_time))
+        print(
+            "--- Library scan is completed in %s seconds ---"
+            % (time.time() - start_time)
+        )
 
     def browseDirClick(self):
         newDir = QtWidgets.QFileDialog.getExistingDirectory(self)
         if newDir:
             self.config.updateLibraryDir(newDir)
-            self.library.updateDirs([newDir, '', -1])
+            self.library.updateDirs([newDir, "", -1])
             self.rescanLibrary()
             self.config.save()
 
@@ -302,7 +319,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # No need to call this function if nothing is played
         if not self.player.mediaplayer.is_playing():
             try:
-                self.lastfm.scrobble(self.player.now_playing.artist, self.player.now_playing.title)
+                self.lastfm.scrobble(
+                    self.player.now_playing.artist, self.player.now_playing.title
+                )
             except Exception as e:
                 print(str(e))
             # End of track reached
@@ -324,7 +343,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             track = self.tableModel.tracks[index]
             if isinstance(track, Track):
                 track.skipped = 0 if track.skipped else 1
-                track.updateAttr('skipped')
+                track.updateAttr("skipped")
                 self.tableModel.tracks[index] = track
         self.tableModel.refreshPlaylist(self.searchEdit.text())
         # QtWidgets.QMessageBox.information(self, 'Message','Track "' + track.getTitle() + '" will be ' + ('skipped ' if track.skipped else 'played'))
@@ -362,10 +381,10 @@ def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
 
     window = FooQt(app)  # Создаём объект класса ExampleApp
-    window.setWindowIcon(QIcon('musical-note.png'))
+    window.setWindowIcon(QIcon("musical-note.png"))
     window.show()  # Показываем окно
-    app.exec_()  # и запускаем приложение
+    app.exec()  # и запускаем приложение
 
 
-if __name__ == '__main__':  # Если мы запускаем файл напрямую, а не импортируем
+if __name__ == "__main__":  # Если мы запускаем файл напрямую, а не импортируем
     main()  # то запускаем функцию main()

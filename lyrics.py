@@ -1,17 +1,17 @@
-import lyricwikia
-from PyLyrics import *
-import lyricsgenius
 import re
 
-from PyQt5.QtCore import QObject, pyqtSignal
+import lyricsgenius
+import lyricwikia
+from PyLyrics import *
+from PyQt6.QtCore import QObject, pyqtSignal
 
 
 class Lyrics(QObject):
     finished = pyqtSignal(str)
 
-    PROVIDER_GENIUS = 'Genius.com'
-    PROVIDER_LYRICSWIKIA = 'LyricsWikia'
-    PROVIDER_PYLYRICS = 'PyLyrics'
+    PROVIDER_GENIUS = "Genius.com"
+    PROVIDER_LYRICSWIKIA = "LyricsWikia"
+    PROVIDER_PYLYRICS = "PyLyrics"
 
     DEFAULT_PROVIDER = PROVIDER_GENIUS
 
@@ -28,7 +28,11 @@ class Lyrics(QObject):
         self.config = config
         self.player = player
         self.initProviders()
-        self.setProvider(self.DEFAULT_PROVIDER if config.getLyricsProvider() == '' else config.getLyricsProvider())
+        self.setProvider(
+            self.DEFAULT_PROVIDER
+            if config.getLyricsProvider() == ""
+            else config.getLyricsProvider()
+        )
 
     def initProviders(self):
         self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
@@ -44,18 +48,29 @@ class Lyrics(QObject):
                 self.finished.emit(lyricwikia.get_lyrics(artist, title))
             elif self.provider == self.PROVIDER_PYLYRICS:
                 lyrics = PyLyrics.getLyrics(artist, title)
-                output = str(lyrics).encode('utf-8', errors='replace')[22:-6:]. \
-                    decode("utf-8").replace('\n', '').replace('<br/>', '\n')
+                output = (
+                    str(lyrics)
+                    .encode("utf-8", errors="replace")[22:-6:]
+                    .decode("utf-8")
+                    .replace("\n", "")
+                    .replace("<br/>", "\n")
+                )
                 try:
                     text = output
                 except:
-                    text = output.encode('utf-8')
+                    text = output.encode("utf-8")
                 self.finished.emit(text)
 
-
         except Exception as e:
-            self.finished.emit(str(self.player.now_playing.artist) + ': ' + str(self.player.now_playing.title) + '\n' \
-                               + self.provider + ' server error: ' + str(e))
+            self.finished.emit(
+                str(self.player.now_playing.artist)
+                + ": "
+                + str(self.player.now_playing.title)
+                + "\n"
+                + self.provider
+                + " server error: "
+                + str(e)
+            )
 
     def setProvider(self, name):
         self.provider = name

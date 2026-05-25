@@ -1,5 +1,6 @@
-from library import Track
 import vlc
+
+from library import Track
 from operating_system import LinuxStandbyLock
 
 
@@ -62,7 +63,10 @@ class Player:
         self.mediaplayer.set_position(pos)
 
     def setVolume(self, volume):
-        self.mediaplayer.audio_set_volume(volume)
+        # audio_set_volume can segfault on VLC 3.0.x if called before any media is loaded.
+        # Guard it with a check, and skip silently if nothing is playing.
+        if self.now_playing is not None:
+            self.mediaplayer.audio_set_volume(int(volume))
 
     def getVolume(self):
         return self.mediaplayer.audio_get_volume()
@@ -79,6 +83,6 @@ class Player:
 
     def getNowPlayingMsg(self):
         if isinstance(self.now_playing, Track):
-            return f'{"Paused: " if self.paused else "Playing: "}{self.now_playing.artist} - {self.now_playing.title} [{self.now_playing.album}]'
+            return f"{'Paused: ' if self.paused else 'Playing: '}{self.now_playing.artist} - {self.now_playing.title} [{self.now_playing.album}]"
         else:
-            return 'Play stopped'
+            return "Play stopped"

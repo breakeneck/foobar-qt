@@ -1,0 +1,7 @@
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+config.json
+db.sqlite3

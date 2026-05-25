@@ -1,9 +1,11 @@
 import os
-from player import Player
-from library import Library, Folder, Track
 import random
-from PyQt5 import QtGui, QtCore, QtWidgets
+
 import qtawesome as qta
+from PyQt6 import QtCore, QtGui, QtWidgets
+
+from library import Folder, Library, Track
+from player import Player
 
 
 def postSetup(main):
@@ -20,17 +22,17 @@ def postSetup(main):
     # design updates
     main.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
     main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
-    main.playBtn.setIcon(qta.icon('fa.play'))
-    main.nextBtn.setIcon(qta.icon('mdi.skip-next'))
-    main.prevBtn.setIcon(qta.icon('mdi.skip-previous'))
-    main.nextRndBtn.setIcon(qta.icon('fa.question'))
-    main.stopAfterBtn.setIcon(qta.icon('fa.stop-circle'))
-    main.rndOrderBtn.setIcon(qta.icon('fa.random'))
-    main.browseDirBtn.setIcon(qta.icon('fa.folder-open'))
-    main.rescanLibBtn.setIcon(qta.icon('mdi.refresh'))
-    main.expandBtn.setIcon(qta.icon('mdi.arrow-expand-vertical'))
-    main.settingsBtn.setIcon(qta.icon('fa.cog'))
-    main.followTreeView.setIcon(qta.icon('fa.dot-circle-o'))
+    main.playBtn.setIcon(qta.icon("mdi.play"))
+    main.nextBtn.setIcon(qta.icon("mdi.skip-next"))
+    main.prevBtn.setIcon(qta.icon("mdi.skip-previous"))
+    main.nextRndBtn.setIcon(qta.icon("mdi.chevron-right"))
+    main.stopAfterBtn.setIcon(qta.icon("mdi.radio-off"))
+    main.rndOrderBtn.setIcon(qta.icon("mdi.playlist-play"))
+    main.browseDirBtn.setIcon(qta.icon("mdi.folder-open"))
+    main.rescanLibBtn.setIcon(qta.icon("mdi.refresh"))
+    main.expandBtn.setIcon(qta.icon("mdi.arrow-expand-vertical"))
+    main.settingsBtn.setIcon(qta.icon("mdi.cog"))
+    main.followTreeView.setIcon(qta.icon("mdi.circle"))
 
     # main.skipShortcut.activated.connect((lambda : QtWidgets.QMessageBox.information(main, 'Message', 'Track "' + main.getSelectedTrack().getTitle() + '" will be skipped')))
     main.posSlider.setMaximum(1000)
@@ -43,7 +45,7 @@ def postSetup(main):
     main.statusbar.setObjectName("statusbar")
     main.setStatusBar(main.statusbar)
     # statusbar widgets
-    main.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal, main)
+    main.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, main)
     main.volumeSlider.setMaximum(100)
     main.volumeSlider.setValue(main.player.getVolume())
     main.volumeSlider.setToolTip("Volume")
@@ -60,14 +62,16 @@ class TreeWidget(QtWidgets.QTreeWidget):
     def __init__(self, parent=None):
         super(TreeWidget, self).__init__(parent)
         self.currentItemChanged.connect(self.onCurrentItemChanged)
-        self.setHeaderLabel('Standard Section Library')
+        self.setHeaderLabel("Standard Section Library")
         self.setRootIsDecorated(True)
         self.setAlternatingRowColors(True)
         self.readSettings()
         self.expandAll()
 
     def onCurrentItemChanged(self, current, previous):
-        if current not in [self.topLevelItem(ix) for ix in range(self.topLevelItemCount())]:
+        if current not in [
+            self.topLevelItem(ix) for ix in range(self.topLevelItemCount())
+        ]:
             self.currentTextChanged.emit(current.text(0))
 
     def readSettings(self):
@@ -92,9 +96,28 @@ class TreeWidget(QtWidgets.QTreeWidget):
         settings.endGroup()
 
     def loadDefault(self):
-        standardsectionlist = ["D100", "D150", "D200", "D250", "D300", "D350", "D400", "D450", "D500",
-                               "D550", "D600", "D650", "D700", "D750", "D800", "D850", "D900", "D950", "D1000"]
-        rootItem = QtWidgets.QTreeWidgetItem(self, ['Circular shapes'])
+        standardsectionlist = [
+            "D100",
+            "D150",
+            "D200",
+            "D250",
+            "D300",
+            "D350",
+            "D400",
+            "D450",
+            "D500",
+            "D550",
+            "D600",
+            "D650",
+            "D700",
+            "D750",
+            "D800",
+            "D850",
+            "D900",
+            "D950",
+            "D1000",
+        ]
+        rootItem = QtWidgets.QTreeWidgetItem(self, ["Circular shapes"])
         # rootItem.setIcon(0, QtGui.QIcon(os.path.join(iconroot, "images/circularcolumnnorebar.png")))
         for element in standardsectionlist:
             rootItem.addChild(QtWidgets.QTreeWidgetItem([element]))
@@ -151,7 +174,6 @@ class TreeModel(QtGui.QStandardItemModel):
         for folder in Folder().getAll():
             parent = self.invisibleRootItem()
             for word in folder.getRelPath(self.library).split("/"):
-
                 for i in range(parent.rowCount()):
                     child = parent.child(i)
                     if child.text() == word:
@@ -183,7 +205,7 @@ class TreeModel(QtGui.QStandardItemModel):
                             stack.append(child)
 
     def updateTitle(self):
-        self.setHeaderData(0, QtCore.Qt.Horizontal, self.library.root_dir)
+        self.setHeaderData(0, QtCore.Qt.Orientation.Horizontal, self.library.root_dir)
 
     def getFolder(self, index):
         return self.folders
@@ -193,7 +215,7 @@ class TreeModel(QtGui.QStandardItemModel):
         while index.isValid():
             folder.append(index.data())
             index = index.parent()
-        return os.path.dirname(self.library.root_dir) + '/' + '/'.join(folder[::-1])
+        return os.path.dirname(self.library.root_dir) + "/" + "/".join(folder[::-1])
 
 
 class FolderItem(QtGui.QStandardItem):
@@ -213,7 +235,7 @@ class TableModel(QtCore.QAbstractTableModel):
         self.groupRows = []
         self.tracks = []
         self.rows = []
-        self.query = ''
+        self.query = ""
 
     def setLibrary(self, library):
         self.library = library
@@ -228,7 +250,7 @@ class TableModel(QtCore.QAbstractTableModel):
         return len(self.headers)
 
     def data(self, index, role=None):
-        if role == QtCore.Qt.FontRole:
+        if role == QtCore.Qt.ItemDataRole.FontRole:
             if index.row() in self.groupRows:
                 font = QtGui.QFont()
                 font.setBold(True)
@@ -240,18 +262,21 @@ class TableModel(QtCore.QAbstractTableModel):
         # } else if (role == Qt::ForegroundRole & & index.column() == 0) {
         # return QColor(Qt::red);
         # }
-        if role != QtCore.Qt.DisplayRole:
-            return QtCore.QVariant()
+        if role != QtCore.Qt.ItemDataRole.DisplayRole:
+            return None
         return self.rows[index.row()][index.column()]
         # return self.tracks[index.row()][index.column()]
 
     def headerData(self, section, orientation, role=None):
-        if role != QtCore.Qt.DisplayRole or orientation != QtCore.Qt.Horizontal:
-            return QtCore.QVariant()
+        if (
+            role != QtCore.Qt.ItemDataRole.DisplayRole
+            or orientation != QtCore.Qt.Orientation.Horizontal
+        ):
+            return None
         return self.headers[section]
 
-    def refreshPlaylist(self, query=''):
-        self.query = ''
+    def refreshPlaylist(self, query=""):
+        self.query = ""
         self.tracks, self.rows = Track().getPlaylist(self.library, query)
 
         self.modelAboutToBeReset.emit()

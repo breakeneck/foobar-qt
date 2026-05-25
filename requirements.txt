@@ -1,11 +1,11 @@
 lyricwikia~=0.1.11
-pyqt5~=5.15.2
+PyQt6~=6.11.0
 eyed3~=0.9.6
-qtawesome==1.2.3
+qtawesome
 PyLyrics~=1.1.0
 lyricsgenius==3.0.1
 keyboard~=0.13.5
-apsw~=3.42.0.0
+apsw
 python-vlc
 setuptools~=49.2.1
 pylast==5.2.0
