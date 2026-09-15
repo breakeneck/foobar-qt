@@ -3,11 +3,11 @@ import sys
 import time
 
 import keyboard
-import qtawesome as qta
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QThread
-from PyQt6.QtGui import QIcon, QShortcut
+from PyQt6.QtGui import QShortcut
 
+import appicon
 import config
 import customui
 import design
@@ -49,9 +49,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         remote.ensure_agents_async(self.library.getAllRootDirs())
 
     def connectEvents(self, app):
-        self.themeCombo.activated.connect(
-            lambda: app.setStyle(self.themeCombo.currentText())
-        )
+        self.themeCombo.activated.connect(self.themeChanged)
         self.lyricsCombo.activated.connect(self.changeLyricsProvider)
         self.browseDirBtn.clicked.connect(self.browseDirClick)
         self.rescanLibBtn.clicked.connect(self.rescanLibrary)
@@ -84,6 +82,19 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.showMinimized
         )
         QShortcut(QtGui.QKeySequence("Ctrl+F"), self).activated.connect(self.goToSearch)
+
+    def themeChanged(self):
+        QtWidgets.QApplication.instance().setStyle(self.themeCombo.currentText())
+        # glyphs were rendered with the old palette color -> re-render them
+        customui.rethemeIcons(self)
+
+    def changeEvent(self, event: QtCore.QEvent):
+        super().changeEvent(event)
+        # KDE/system color scheme switched while running: Qt propagates the
+        # new palette to this window, but the pre-rendered glyphs must be
+        # re-rendered with the new text color
+        if event.type() == QtCore.QEvent.Type.PaletteChange:
+            customui.rethemeIcons(self)
 
     def showEvent(self, a0: QtGui.QShowEvent) -> None:
         self.config.onAppShow()
@@ -177,7 +188,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def updatePlayStatus(self):
         icon = (
-            qta.icon("mdi.play") if self.player.isNoMusic() else qta.icon("mdi.pause")
+            customui.themed_icon(self, "mdi.play")
+            if self.player.isNoMusic()
+            else customui.themed_icon(self, "mdi.pause")
         )
         self.playBtn.setIcon(icon)
         if self.player.isNoMusic():
@@ -212,7 +225,12 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if not index:
             return print("No item selected")
 
-        track = self.player.play(index.row(), self.tableModel.tracks[index.row()])
+        item = self.tableModel.tracks[index.row()]
+        # group header rows carry a dir name instead of a Track: not playable
+        if not isinstance(item, Track):
+            return
+
+        track = self.player.play(index.row(), item)
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
@@ -390,7 +408,7 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
 
     window = FooQt(app)
-    window.setWindowIcon(QIcon("musical-note.png"))
+    window.setWindowIcon(appicon.build_icon())
     window.show()
     app.exec()
 

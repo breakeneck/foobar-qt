@@ -32,6 +32,15 @@ fi
 
 mkdir -p "$APPS_DIR"
 
+# Render a theme-proof app icon (white note on a colored tile) so the entry
+# is visible in both light and dark menus/docks; fall back to the raw PNG.
+ICON_PNG="$SCRIPT_DIR/fooqt6-icon.png"
+if QT_QPA_PLATFORM=offscreen "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/appicon.py" "$ICON_PNG" >/dev/null 2>&1; then
+    ICON_PATH="$ICON_PNG"
+else
+    ICON_PATH="$SCRIPT_DIR/musical-note.png"
+fi
+
 # Path= keeps the cwd at the project dir, so config.json/db.sqlite3 always
 # live next to the app no matter how it is launched.
 cat > "$DESKTOP_FILE" <<EOF
@@ -43,7 +52,7 @@ GenericName=Music Player
 Comment=PyQt6 music player with local and SFTP library support
 Exec=bash "$SCRIPT_DIR/run.sh"
 Path=$SCRIPT_DIR
-Icon=$SCRIPT_DIR/musical-note.png
+Icon=$ICON_PATH
 Terminal=false
 Categories=AudioVideo;Audio;Player;Qt;
 EOF

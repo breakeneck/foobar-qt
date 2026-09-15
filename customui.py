@@ -10,6 +10,46 @@ from player import Player
 from virtualfs import dirname
 
 
+# qtawesome glyphs must follow the palette: fixed white glyphs are invisible
+# on light themes and black ones on dark themes
+ICON_NAMES = {
+    "nextBtn": "mdi.skip-next",
+    "prevBtn": "mdi.skip-previous",
+    "nextRndBtn": "mdi.chevron-right",
+    "stopAfterBtn": "mdi.radio-off",
+    "rndOrderBtn": "mdi.playlist-play",
+    "browseDirBtn": "mdi.folder-open",
+    "rescanLibBtn": "mdi.refresh",
+    "expandBtn": "mdi.arrow-expand-vertical",
+    "settingsBtn": "mdi.cog",
+    "followTreeView": "mdi.circle",
+}
+
+
+_last_icon_color = None
+
+
+def themed_icon(widget, name):
+    # read the widget's effective palette so per-widget overrides and
+    # app/system palette changes are both picked up
+    color = widget.palette().color(QtGui.QPalette.ColorRole.ButtonText)
+    return qta.icon(name, color=color.name())
+
+
+def rethemeIcons(main):
+    # PaletteChange events can arrive repeatedly; only re-render when the
+    # glyph color actually changed
+    global _last_icon_color
+    color = main.palette().color(QtGui.QPalette.ColorRole.ButtonText).name()
+    if color == _last_icon_color:
+        return
+    _last_icon_color = color
+    for attr, name in ICON_NAMES.items():
+        getattr(main, attr).setIcon(qta.icon(name, color=color))
+    # playBtn's icon depends on the playback state
+    main.updatePlayStatus()
+
+
 def postSetup(main):
     main.timer = QtCore.QTimer(main)
     main.treeModel = TreeModel(main)
@@ -19,25 +59,14 @@ def postSetup(main):
     main.tableModel.setPlayer(main.player)
     main.statusbar = StatusBar()
     main.timer.setInterval(100)
+    main.statusbar.setObjectName("statusbar")
+    main.setStatusBar(main.statusbar)
     main.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
     main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
-    main.playBtn.setIcon(qta.icon("mdi.play"))
-    main.nextBtn.setIcon(qta.icon("mdi.skip-next"))
-    main.prevBtn.setIcon(qta.icon("mdi.skip-previous"))
-    main.nextRndBtn.setIcon(qta.icon("mdi.chevron-right"))
-    main.stopAfterBtn.setIcon(qta.icon("mdi.radio-off"))
-    main.rndOrderBtn.setIcon(qta.icon("mdi.playlist-play"))
-    main.browseDirBtn.setIcon(qta.icon("mdi.folder-open"))
-    main.rescanLibBtn.setIcon(qta.icon("mdi.refresh"))
-    main.expandBtn.setIcon(qta.icon("mdi.arrow-expand-vertical"))
-    main.settingsBtn.setIcon(qta.icon("mdi.cog"))
-    main.followTreeView.setIcon(qta.icon("mdi.circle"))
     main.posSlider.setMaximum(1000)
     main.treeView.setModel(main.treeModel)
     main.tableView.setModel(main.tableModel)
     main.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-    main.statusbar.setObjectName("statusbar")
-    main.setStatusBar(main.statusbar)
     main.volumeSlider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal, main)
     main.volumeSlider.setMaximum(100)
     main.volumeSlider.setValue(main.player.getVolume())
@@ -46,6 +75,7 @@ def postSetup(main):
     main.statusbar.addPermanentWidget(main.volumeSlider)
     main.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
     main.tableView.setFocusPolicy(QtCore.Qt.StrongFocus)
+    rethemeIcons(main)
 
 
 class TreeModel(QtGui.QStandardItemModel):
@@ -173,6 +203,13 @@ class TableModel(QtCore.QAbstractTableModel):
 
     def columnCount(self, parent=None):
         return len(self.headers)
+
+    def flags(self, index):
+        # group header rows are decorative: letting them be selected would
+        # pass a dir name where a Track is expected (play/Enter/statusbar)
+        if index.row() in self.groupRows:
+            return QtCore.Qt.ItemFlag.ItemIsEnabled
+        return super().flags(index)
 
     def data(self, index, role=None):
         if role == QtCore.Qt.ItemDataRole.FontRole:

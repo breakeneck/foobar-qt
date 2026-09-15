@@ -80,6 +80,10 @@ class Config:
         self.w.volumeSlider.setValue(self.config["volume"])
         self.w.setVolume(self.w.volumeSlider.value())
         self.w.searchEdit.setText(self.config["search"])
+        # setStyle above may reset the palette -> re-render glyphs to match it
+        import customui
+
+        customui.rethemeIcons(self.w)
 
     def onAppShow(self):
         self.w.treeView.verticalScrollBar().setSliderPosition(

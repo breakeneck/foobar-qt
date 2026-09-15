@@ -42,6 +42,35 @@ class Library:
             Track().create_table()
             Folder().create_table()
         self.scanner = Scanner(self)
+        # note: database.connect() returns a falsy value in both branches,
+        # so don't gate on isDbExists; migration is a no-op on a fresh DB
+        self.migrateGroupNames()
+
+    def migrateGroupNames(self):
+        """Recompute stored group names with the current get_short_dir_name
+        logic. They are a pure function of the stored paths plus the current
+        root dirs, so a format change does not require a full rescan."""
+        try:
+            scanner = self.scanner
+            for table, path_col, name_col in (
+                (Library.TRACK_TABLE_NAME, "dir_name", "base_dir_name"),
+                (Library.FOLDER_TABLE_NAME, "path", "short_dir_name"),
+            ):
+                database.db.execute(
+                    f"SELECT DISTINCT {path_col} FROM {table}"
+                )
+                paths = [row[0] for row in database.db.fetchall()]
+                for path in paths:
+                    root = scanner.get_root_for_path(path)
+                    if not root:
+                        continue
+                    new_name = scanner.get_short_dir_name(path, root)
+                    database.db.execute(
+                        f"UPDATE {table} SET {name_col} = ? WHERE {path_col} = ?",
+                        (new_name, path),
+                    )
+        except Exception as e:
+            print("group name migration failed: %r" % e)
 
     def updateDirs(self, dirs):
         self.root_dir, self.selected_dir, self.selected_dir_row = dirs
@@ -295,16 +324,21 @@ class Scanner:
     def get_short_dir_name(self, full_path, root_dir):
         """
         Compute display name for track grouping in the table view.
-        For SFTP: 'ha://music/Artist' or 'ha://music' for the root itself.
-        For local: 'Music/Artist' or 'Music' for the root itself.
+        The path is shown relative to the library root (the target dir),
+        e.g. 'Artist/Album'; tracks directly in the target dir group under
+        its basename. With several library roots the root label is kept as a
+        prefix ('ha://music/Artist') so the groups stay unambiguous.
         """
-        root_label = get_root_label(root_dir)
         if full_path == root_dir:
-            return root_label
-        if full_path.startswith(root_dir):
+            rel = ""
+        elif full_path.startswith(root_dir):
             rel = full_path[len(root_dir) :].lstrip("/")
-            return root_label + "/" + rel
-        return basename(full_path)
+        else:
+            return basename(full_path)
+        if len(self.library.getAllRootDirs()) > 1:
+            root_label = get_root_label(root_dir)
+            return root_label + ("/" + rel if rel else "")
+        return rel if rel else basename(root_dir)
 
     def insert_dir(self, full_path):
         folder = Folder()
