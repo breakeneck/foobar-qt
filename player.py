@@ -2,6 +2,7 @@ import os
 
 import vlc
 
+import remote
 from library import Track
 from operating_system import LinuxStandbyLock
 from virtualfs import is_sftp_path, open_file_to_temp
@@ -58,15 +59,25 @@ class Player:
 
         play_path = track.full_path
         if is_sftp_path(play_path):
+            # Prefer HTTP streaming through the remote agent: VLC starts
+            # playing immediately and can seek via Range requests. Only fall
+            # back to downloading the whole file when the agent is unusable.
             try:
-                local_path, is_temp = open_file_to_temp(play_path)
-                play_path = local_path
-                self._last_temp_file = local_path if is_temp else ""
+                play_path = remote.stream_url(play_path)
             except Exception as e:
-                print(f"Failed to download SFTP track for playback: {e}")
-                self.paused = True
-                self.now_playing = None
-                return False
+                print(
+                    "SFTP streaming unavailable (%r); "
+                    "falling back to full download" % e
+                )
+                try:
+                    local_path, is_temp = open_file_to_temp(track.full_path)
+                    play_path = local_path
+                    self._last_temp_file = local_path if is_temp else ""
+                except Exception as e:
+                    print(f"Failed to download SFTP track for playback: {e}")
+                    self.paused = True
+                    self.now_playing = None
+                    return False
 
         try:
             media = self.instance.media_new(play_path)

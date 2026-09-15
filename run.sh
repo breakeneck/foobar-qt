@@ -10,5 +10,8 @@ fi
 
 VENV_PYTHON="$VENV_DIR/bin/python"
 
+# config.json/db.sqlite3 are relative paths -> always run from the project dir
+cd "$SCRIPT_DIR"
+
 echo "Starting app..."
 $VENV_PYTHON "$SCRIPT_DIR/main.py"

@@ -1,11 +1,13 @@
 import os
 import random
 
+import database
 import qtawesome as qta
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from library import Folder, Library, Track
 from player import Player
+from virtualfs import dirname
 
 
 def postSetup(main):
@@ -56,56 +58,62 @@ class TreeModel(QtGui.QStandardItemModel):
     def setLibrary(self, library):
         self.library = library
 
-    def _split_tree_path(self, path):
-        """
-        Split a tree path into node names, handling SFTP paths like 'ha://music'.
-
-        'ha://music'.split('/')  -> ['ha:', '', 'music']
-        'ha://music/Artist'      -> ['ha:', '', 'music', 'Artist']
-
-        We want:
-          'ha://music'            -> ['ha://music']
-          'ha://music/Artist'     -> ['ha://music', 'Artist']
-          'ha://music/A/B'        -> ['ha://music', 'A', 'B']
-
-        Local paths work normally:
-          'Music/Artist'          -> ['Music', 'Artist']
-        """
-        parts = path.split("/")
-        if len(parts) >= 2 and ":" in parts[0]:
-            scheme = parts[0]
-            i = 1
-            while i < len(parts) and not parts[i]:
-                i += 1
-            if i < len(parts):
-                slashes = "/" * i
-                merged = scheme + slashes + parts[i]
-                parts = [merged] + parts[i + 1 :]
-            else:
-                parts = [scheme]
-        return [p for p in parts if p]
-
     def loadTreeData(self, treeView: QtWidgets.QTreeView):
         self.clear()
 
-        for folder in Folder().getAll():
-            parent = self.invisibleRootItem()
-            for word in self._split_tree_path(folder.getRelPath(self.library)):
-                for i in range(parent.rowCount()):
-                    child = parent.child(i)
-                    if child.text() == word:
-                        item = child
-                        break
-                else:
-                    item = FolderItem(word)
-                    item.setDbModel(folder)
+        # The tree shows the full folder hierarchy starting at each library
+        # root (the target dir). Folders that contain no tracks anywhere in
+        # their subtree (e.g. 'covers' image dirs) are hidden.
+        database.db.execute(
+            f"SELECT DISTINCT dir_name FROM {Library.TRACK_TABLE_NAME}"
+        )
+        leaf_dirs = {row[0] for row in database.db.fetchall()}
+        all_roots = self.library.getAllRootDirs()
 
-                    parent.setChild(parent.rowCount(), item)
-                    if item.dbModel.is_expanded:
-                        treeView.expand(item.index())
-                    else:
-                        treeView.collapse(item.index())
-                parent = item
+        def root_for(path):
+            for root in all_roots:
+                if path == root or path.startswith(root + "/"):
+                    return root
+            return ""
+
+        # every folder on the way from a root down to a dir containing tracks
+        visible = set(all_roots)
+        for leaf in leaf_dirs:
+            path = leaf
+            while path and root_for(path):
+                visible.add(path)
+                parent = dirname(path)
+                if parent == path:
+                    break
+                path = parent
+
+        root_items = {}
+        items_by_path = {}
+        for folder in Folder().getAll():  # ORDER BY path: parents before children
+            path = folder.path
+            root = root_for(path)
+            if not root or path not in visible:
+                continue
+
+            if path == root:
+                parent = self.invisibleRootItem()
+                text = folder.getRelPath(self.library)
+            else:
+                parent = items_by_path.get(dirname(path)) or root_items.get(root)
+                if parent is None:
+                    continue  # the root row is missing from the folder table
+                text = folder.basename
+
+            item = FolderItem(text)
+            item.setDbModel(folder)
+            parent.setChild(parent.rowCount(), item)
+            if folder.is_expanded:
+                treeView.expand(item.index())
+            else:
+                treeView.collapse(item.index())
+            items_by_path[path] = item
+            if path == root:
+                root_items[root] = item
 
         self.updateTitle()
 
@@ -189,8 +197,9 @@ class TableModel(QtCore.QAbstractTableModel):
         return self.headers[section]
 
     def refreshPlaylist(self, query=""):
-        self.query = ""
-        self.tracks, self.rows = Track().getPlaylist(self.library, query)
+        self.query = query
+        # query must not be passed positionally: the 2nd arg is root_dir
+        self.tracks, self.rows = Track().getPlaylist(self.library, None, query)
 
         self.modelAboutToBeReset.emit()
         self.groupRows.clear()

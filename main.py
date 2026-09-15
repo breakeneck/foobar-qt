@@ -11,7 +11,9 @@ from PyQt6.QtGui import QIcon, QShortcut
 import config
 import customui
 import design
+import remote
 from dialogs import AddLibraryDirDialog, SettingsDialog
+from virtualfs import is_sftp_path
 from lastfm import LastFM
 from library import Library, Track
 from lyrics import Lyrics
@@ -42,6 +44,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
         self.treeModel.loadTreeData(self.treeView)
 
+        # Zed-style: check/install the remote scan agent on every configured
+        # SFTP host right away, in the background.
+        remote.ensure_agents_async(self.library.getAllRootDirs())
+
     def connectEvents(self, app):
         self.themeCombo.activated.connect(
             lambda: app.setStyle(self.themeCombo.currentText())
@@ -57,7 +63,8 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.searchEdit.textChanged.connect(self.searchChanged)
         self.searchEdit.returnPressed.connect(self.stopAndPlay)
         self.searchClearBtn.clicked.connect(self.searchClear)
-        self.treeView.clicked.connect(self.treeViewClick)
+        # currentChanged (not clicked) also fires on arrow-key navigation
+        self.treeView.selectionModel().currentChanged.connect(self.treeViewClick)
         self.tableView.doubleClicked.connect(self.play)
         self.posSlider.sliderMoved.connect(self.setPos)
         self.posSlider.sliderPressed.connect(self.setPos)
@@ -87,21 +94,43 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         self.treeView.collapseAll()
 
-        parent = self.treeModel.invisibleRootItem()
-        for word in (
-            self.player.now_playing.getFolder().getRelPath(self.library).split("/")
-        ):
-            print("searching for word", word)
-            for i in range(parent.rowCount()):
-                child = parent.child(i)
-                if child.text() == word:
-                    print(word, child.index())
-                    self.treeView.expand(child.index())
-                    self.treeView.setCurrentIndex(child.index())
-                    parent = child
+        # Match the track's dir_name against node paths (works for the full
+        # hierarchy under each root).
+        dir_name = self.player.now_playing.dir_name
+
+        root_item = None
+        target_item = None
+        for i in range(self.treeModel.rowCount()):
+            item = self.treeModel.item(i, 0)
+            root = item.dbModel.path
+            if dir_name == root:
+                # The track lives directly in the root folder
+                root_item = target_item = item
+                break
+            if dir_name.startswith(root + "/"):
+                for node in self.treeModel.iterItems(item):
+                    if node.dbModel.path == dir_name:
+                        root_item, target_item = item, node
+                        break
+                if target_item is not None:
                     break
 
-        self.treeViewClick(parent.index())
+        if root_item is None or target_item is None:
+            return
+
+        # Expand the whole chain from the root down to the target folder
+        chain = []
+        node = target_item
+        while node is not None:
+            chain.append(node)
+            if node is root_item:
+                break
+            node = node.parent()
+        for node in reversed(chain):
+            self.treeView.expand(node.index())
+
+        self.treeView.setCurrentIndex(target_item.index())
+        self.treeViewClick(target_item.index())
         self.selectCurrentTrack()
 
     def expandBtnClick(self):
@@ -119,8 +148,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.searchEdit.setFocus()
 
     def treeViewClick(self, index: QtCore.QModelIndex):
+        item = self.treeModel.itemFromIndex(index)
+        if item is None:  # e.g. invalid index while the model is being reset
+            return
         self.library.selected_dir_row = index.row()
-        self.library.selected_dir = self.treeModel.itemFromIndex(index).dbModel.path
+        self.library.selected_dir = item.dbModel.path
         self.config.updateSelectedDir(
             self.library.selected_dir, self.library.selected_dir_row
         )
@@ -241,9 +273,21 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.stop()
 
     def rescanLibrary(self):
+        if getattr(self, "_scanning", False):
+            return
+        self._scanning = True
         start_time = time.time()
-        self.library.rescan()
+
+        def progress(msg):
+            self.statusbar.showMessage("Scanning... " + msg)
+            QtWidgets.QApplication.processEvents()
+
+        try:
+            self.library.rescan(progress)
+        finally:
+            self._scanning = False
         self.treeModel.loadTreeData(self.treeView)
+        self.statusbar.showMessage("Scan completed", 3000)
         print(
             "--- Library scan is completed in %s seconds ---"
             % (time.time() - start_time)
@@ -252,12 +296,20 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def browseDirClick(self):
         dialog = AddLibraryDirDialog(self)
         dialog.confirmed.connect(self.onDirAdded)
+        dialog.formSaved.connect(self.saveAddDirForm)
+        dialog.setInitialForm(self.config.getAddDirForm())
         dialog.exec()
+
+    def saveAddDirForm(self, data):
+        self.config.saveAddDirForm(json.loads(data))
 
     def onDirAdded(self, directory):
         if directory:
             self.config.addLibraryDir(directory)
             self.library.addDir(directory)
+            if is_sftp_path(directory):
+                self.statusbar.showMessage("Checking remote agent...")
+                QtWidgets.QApplication.processEvents()
             self.rescanLibrary()
             self.config.save()
 

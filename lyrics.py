@@ -34,43 +34,62 @@ class Lyrics(QObject):
             else config.getLyricsProvider()
         )
 
+    # genius.com sits behind Cloudflare which rejects the library's default
+    # User-Agent with 403; a browser-like one goes through
+    BROWSER_UA = (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0"
+    )
+
     def initProviders(self):
-        self.genius = lyricsgenius.Genius(self.config.getLyricsGeniusToken())
+        self.genius = lyricsgenius.Genius(
+            self.config.getLyricsGeniusToken(), verbose=False
+        )
+        self.genius._session.headers.update({"User-Agent": self.BROWSER_UA})
 
     def run(self):
-        artist = re.sub(r"\(.*?\)", "", self.player.now_playing.artist)
-        title = re.sub(r"\(.*?\)", "", self.player.now_playing.title)
-        try:
-            if self.provider == self.PROVIDER_GENIUS:
-                song = self.genius.search_song(title, artist)
-                self.finished.emit(song.lyrics)
-            elif self.provider == self.PROVIDER_LYRICSWIKIA:
-                self.finished.emit(lyricwikia.get_lyrics(artist, title))
-            elif self.provider == self.PROVIDER_PYLYRICS:
-                lyrics = PyLyrics.getLyrics(artist, title)
-                output = (
-                    str(lyrics)
-                    .encode("utf-8", errors="replace")[22:-6:]
-                    .decode("utf-8")
-                    .replace("\n", "")
-                    .replace("<br/>", "\n")
-                )
-                try:
-                    text = output
-                except:
-                    text = output.encode("utf-8")
-                self.finished.emit(text)
+        artist = re.sub(r"\(.*?\)", "", self.player.now_playing.artist).strip()
+        title = re.sub(r"\(.*?\)", "", self.player.now_playing.title).strip()
 
-        except Exception as e:
-            self.finished.emit(
-                str(self.player.now_playing.artist)
-                + ": "
-                + str(self.player.now_playing.title)
-                + "\n"
-                + self.provider
-                + " server error: "
-                + str(e)
+        # Try the selected provider first, then fall back to the others:
+        # a song missing from one site's database is often found on another.
+        providers = [self.provider] + [p for p in self.PROVIDERS if p != self.provider]
+        errors = []
+        for provider in providers:
+            try:
+                lyrics = self.getLyrics(provider, artist, title)
+                if lyrics:
+                    if provider != self.provider:
+                        lyrics = "(%s)\n\n%s" % (provider, lyrics)
+                    self.finished.emit(lyrics)
+                    return
+                errors.append("%s: no lyrics" % provider)
+            except Exception as e:
+                errors.append("%s: %s" % (provider, str(e)))
+
+        self.finished.emit(
+            str(self.player.now_playing.artist)
+            + ": "
+            + str(self.player.now_playing.title)
+            + "\nLyrics not found (" + ", ".join(errors) + ")"
+        )
+
+    def getLyrics(self, provider, artist, title):
+        if provider == self.PROVIDER_GENIUS:
+            song = self.genius.search_song(title, artist)
+            return song.lyrics if song else None
+        if provider == self.PROVIDER_LYRICSWIKIA:
+            return lyricwikia.get_lyrics(artist, title)
+        if provider == self.PROVIDER_PYLYRICS:
+            lyrics = PyLyrics.getLyrics(artist, title)
+            output = (
+                str(lyrics)
+                .encode("utf-8", errors="replace")[22:-6:]
+                .decode("utf-8")
+                .replace("\n", "")
+                .replace("<br/>", "\n")
             )
+            return output
+        return None
 
     def setProvider(self, name):
         self.provider = name

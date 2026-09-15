@@ -31,6 +31,7 @@ class AddLibraryDirDialog(QtWidgets.QDialog):
     """Dialog to add either a local directory or an SFTP directory to the library."""
 
     confirmed = QtCore.pyqtSignal(str)
+    formSaved = QtCore.pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,11 +107,37 @@ class AddLibraryDirDialog(QtWidgets.QDialog):
 
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
+    def setInitialForm(self, data):
+        """Restore the previously entered values."""
+        self.local_path_edit.setText(data.get("local", ""))
+        self.sftp_host_edit.setText(data.get("sftp_host", ""))
+        self.sftp_path_edit.setText(data.get("sftp_path", ""))
+        self.tabs.setCurrentIndex(data.get("tab", 0))
+
+    def _form_data(self):
+        return json.dumps(
+            {
+                "local": self.local_path_edit.text().strip(),
+                "sftp_host": self.sftp_host_edit.text().strip(),
+                "sftp_path": self.sftp_path_edit.text().strip(),
+                "tab": self.tabs.currentIndex(),
+            }
+        )
+
     def _on_tab_changed(self, index):
         if index == 0:
             self.local_path_edit.setFocus()
         else:
             self.sftp_host_edit.setFocus()
+
+    def reject(self):
+        # keep whatever the user typed even when the dialog is cancelled
+        self.formSaved.emit(self._form_data())
+        super().reject()
+
+    def closeEvent(self, event):
+        self.formSaved.emit(self._form_data())
+        super().closeEvent(event)
 
     def _browse_local(self):
         path = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Music Folder")
@@ -163,6 +190,8 @@ class AddLibraryDirDialog(QtWidgets.QDialog):
                     self, "Error", "Directory does not exist:\n{}".format(expanded)
                 )
                 return
+            self.local_path_edit.setText(expanded)
+            self.formSaved.emit(self._form_data())
             self.confirmed.emit(expanded)
             self.accept()
 
@@ -196,5 +225,7 @@ class AddLibraryDirDialog(QtWidgets.QDialog):
                 )
                 return
 
+            self.sftp_path_edit.setText(remote_path)
+            self.formSaved.emit(self._form_data())
             self.confirmed.emit(sftp_url)
             self.accept()

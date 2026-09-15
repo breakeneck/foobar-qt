@@ -32,6 +32,7 @@ class Config:
                 "treeview_scroll_pos": 0,
                 "tableview_scroll_pos": 0,
                 "treeview_path": "",
+                "add_dir_form": {},
             }
 
         self._migrate_dirs()
@@ -188,6 +189,13 @@ class Config:
         self.config["lyrics_genius_token"] = lyrics_genius_token
         self.config["lastfm_username"] = lastfm_username
         self.config["lastfm_password"] = lastfm_password
+        self.save()
+
+    def getAddDirForm(self):
+        return self.config.get("add_dir_form", {})
+
+    def saveAddDirForm(self, form):
+        self.config["add_dir_form"] = form
         self.save()
 
     def getLyricsProvider(self):

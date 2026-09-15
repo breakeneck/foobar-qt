@@ -4,6 +4,7 @@ from pathlib import Path
 import eyed3
 
 import database
+import remote
 from virtualfs import (
     basename,
     dirname,
@@ -61,7 +62,7 @@ class Library:
             return self.library_dirs
         return [self.root_dir] if self.root_dir else []
 
-    def rescan(self):
+    def rescan(self, progress_cb=None):
         all_dirs = self.getAllRootDirs()
         self.scanner.existing_tracks = {}
         for root in all_dirs:
@@ -77,7 +78,7 @@ class Library:
         Folder().create_table()
 
         for root in all_dirs:
-            self.scanner.parse(root)
+            self.scanner.parse(root, progress_cb)
         self.scanner.tracks = []
 
 
@@ -217,10 +218,16 @@ class Scanner:
     def __init__(self, library):
         self.library = library
 
-    def parse(self, dir_name):
+    def parse(self, dir_name, progress_cb=None):
         all_roots = self.library.getAllRootDirs()
         if dir_name in all_roots:
             self.insert_dir(dir_name)
+
+        # SFTP roots are scanned by the remote agent on the remote machine
+        # itself; fall back to the slow per-file SFTP walk if unavailable.
+        if is_sftp_path(dir_name) and dir_name in all_roots:
+            if self.parse_remote(dir_name, progress_cb):
+                return
 
         files = listdir(dir_name)
         for f in files:
@@ -234,6 +241,49 @@ class Scanner:
                         self.existing_tracks[full_path].insert()
                     else:
                         self.insert_track(full_path)
+
+    def parse_remote(self, root, progress_cb):
+        """Scan an sftp:// root through the remote agent. Returns True on
+        success, False if the agent could not be used (caller falls back)."""
+        host, remote_root = parse_sftp_url(root)
+        try:
+            client = remote.get_client(host)
+            client.ensure_agent()
+        except Exception as e:
+            print(
+                "Remote agent unavailable for %s (%s); falling back to SFTP walk"
+                % (host, e)
+            )
+            return False
+
+        def on_entries(entries):
+            for entry in entries:
+                full_path = "sftp://%s%s" % (host, entry["p"])
+                if entry["t"] == "d":
+                    self.insert_dir(full_path)
+                elif full_path in self.existing_tracks:
+                    self.existing_tracks[full_path].insert()
+                else:
+                    self.insert_track(
+                        full_path,
+                        tags={
+                            "duration": entry.get("dur"),
+                            "artist": entry.get("artist"),
+                            "title": entry.get("title"),
+                            "album": entry.get("album"),
+                        },
+                    )
+
+        try:
+            client.scan(
+                remote_root,
+                on_entries,
+                progress_cb and (lambda msg: progress_cb(msg)),
+            )
+        except Exception as e:
+            print("Remote scan failed for %s (%s)" % (root, e))
+            return False
+        return True
 
     def get_root_for_path(self, full_path):
         """Find which root dir this path belongs to."""
@@ -267,7 +317,39 @@ class Scanner:
         folder.is_expanded = 0
         folder.insert()
 
-    def insert_track(self, full_path):
+    def _read_local_tags(self, full_path):
+        """Read tags locally (downloading SFTP files to a temp file).
+        Returns a tags dict, or None if the file is not loadable."""
+        try:
+            local_path, is_temp = open_file_to_temp(full_path)
+            try:
+                file = eyed3.load(local_path)
+                duration = file.info.time_secs
+                if not duration:
+                    return None
+            finally:
+                if is_temp:
+                    try:
+                        os.remove(local_path)
+                    except OSError:
+                        pass
+        except:
+            print("Critical error on loading tag for", full_path)
+            return None
+
+        tags = {"duration": duration}
+        try:
+            tags["artist"] = file.tag.artist
+            tags["title"] = file.tag.title
+            tags["album"] = file.tag.album
+        except:
+            print("Tag error for file", full_path)
+        return tags
+
+    def insert_track(self, full_path, tags=None):
+        """Insert a track. If tags (duration/artist/title/album) were already
+        read by the remote agent they are reused instead of fetching the
+        file over SFTP."""
         track = Track()
 
         if full_path in self.tracks:
@@ -279,43 +361,32 @@ class Scanner:
         root_dir = self.get_root_for_path(full_path)
         track.base_dir_name = self.get_short_dir_name(track.dir_name, root_dir)
 
-        try:
-            local_path, is_temp = open_file_to_temp(full_path)
-            try:
-                file = eyed3.load(local_path)
-                track.duration = file.info.time_secs
-                if not track.duration:
-                    return
-            finally:
-                if is_temp:
-                    try:
-                        os.remove(local_path)
-                    except OSError:
-                        pass
-        except:
-            print("Critical error on loading tag for", full_path)
-            return
+        if tags is None:
+            tags = self._read_local_tags(full_path)
+            if tags is None:
+                return
 
-        try:
-            track.artist = file.tag.artist
-            track.title = (
-                file.tag.title if file.tag.title else Path(track.basename).stem
-            )
-            track.album = file.tag.album
-        except:
-            if not track.title:
-                clean_name = Path(track.basename).stem
-                if len(clean_name.split(" - ")) == 2:
-                    track.artist, track.title = clean_name.split(" - ")
-                elif len(clean_name.split("-")) == 2:
-                    track.artist, track.title = clean_name.split("-")
-                else:
-                    track.title = clean_name
-                if track.artist[:3].isdigit():
-                    track.artist = track.artist[3:].strip()
-                elif track.artist[:2].isdigit():
-                    track.artist = track.artist[2:].strip()
-            print("Tag error for file", full_path)
+        track.duration = int(tags.get("duration") or 0)
+        artist = tags.get("artist") or ""
+        title = tags.get("title") or ""
+        album = tags.get("album") or ""
+
+        if not title:
+            clean_name = Path(track.basename).stem
+            if len(clean_name.split(" - ")) == 2:
+                artist, title = clean_name.split(" - ")
+            elif len(clean_name.split("-")) == 2:
+                artist, title = clean_name.split("-")
+            else:
+                title = clean_name
+            if artist[:3].isdigit():
+                artist = artist[3:].strip()
+            elif artist[:2].isdigit():
+                artist = artist[2:].strip()
+
+        track.artist = artist
+        track.title = title
+        track.album = album
 
         if not track.artist and not track.title:
             track.title = track.basename
