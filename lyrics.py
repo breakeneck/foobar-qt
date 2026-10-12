@@ -47,8 +47,23 @@ class Lyrics(QObject):
         self.genius._session.headers.update({"User-Agent": self.BROWSER_UA})
 
     def run(self):
-        artist = re.sub(r"\(.*?\)", "", self.player.now_playing.artist).strip()
-        title = re.sub(r"\(.*?\)", "", self.player.now_playing.title).strip()
+        # Nothing may escape this slot: when a Python exception propagates
+        # out of a slot invoked from C++, PyQt6 calls qFatal() and abort()s
+        # the whole process.
+        try:
+            self.lookup()
+        except Exception as e:
+            self.finished.emit("Lyrics lookup failed: %s" % e)
+
+    def lookup(self):
+        # Capture the track: playback may stop while this runs.
+        track = self.player.now_playing
+        if not track:
+            return
+        # Tags can be NULL in the DB (rows load straight from SQLite),
+        # and re.sub on None raises TypeError.
+        artist = re.sub(r"\(.*?\)", "", str(track.artist or "")).strip()
+        title = re.sub(r"\(.*?\)", "", str(track.title or "")).strip()
 
         # Try the selected provider first, then fall back to the others:
         # a song missing from one site's database is often found on another.
@@ -67,9 +82,9 @@ class Lyrics(QObject):
                 errors.append("%s: %s" % (provider, str(e)))
 
         self.finished.emit(
-            str(self.player.now_playing.artist)
+            str(track.artist or "")
             + ": "
-            + str(self.player.now_playing.title)
+            + str(track.title or "")
             + "\nLyrics not found (" + ", ".join(errors) + ")"
         )
 

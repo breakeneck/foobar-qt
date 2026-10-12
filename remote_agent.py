@@ -16,7 +16,7 @@ SFTP music servers, Zed-remote style:
 
 Protocol (JSON over HTTP, token in the X-Fooqt-Token header):
   GET  /ping                   -> {"ok", "version", "pid"}      (no token needed)
-  POST /scan   {"id", "root"}  -> start a scan job
+  POST /scan   {"id", "root", "known"} -> start a scan job
   GET  /progress?id=&cursor=   -> {"state", "cursor", "counts", "entries"}
   GET  /file?path=...          -> stream an audio file (Range supported)
   POST /forget {"id"}          -> drop a finished job
@@ -24,7 +24,15 @@ Protocol (JSON over HTTP, token in the X-Fooqt-Token header):
 Entry shapes:
   {"t": "d", "p": "/abs/dir"}                              folder
   {"t": "f", "p": "/abs/file", "artist": ..., "title": ...,
-                 "album": ..., "dur": duration_secs}       track
+                 "album": ..., "dur": duration_secs,
+                 "mt": mtime, "sz": size}                  new/changed track
+  {"t": "f", "p": "/abs/file", "mt": mtime, "sz": size,
+                 "u": 1}                                   unchanged track
+                                                          (no tags sent)
+
+"known" maps remote file paths to [mtime, size] fingerprints of files the
+client already has; matching files are reported as unchanged so the agent
+skips reading their tags.
 
 Tag reading uses eyed3 when it happens to be installed on the remote host;
 otherwise it falls back to built-in parsers (ID3v1/ID3v2, Vorbis comments,
@@ -32,7 +40,7 @@ FLAC STREAMINFO, MP4 ilst atoms). Unknown fields are simply omitted; the
 desktop client applies its own filename-based fallbacks.
 """
 
-VERSION = "1.1.0"
+VERSION = "1.3.0"
 
 import argparse
 import json
@@ -61,7 +69,7 @@ AUDIO_EXTS = {
 }
 MAX_ENTRIES_PER_RESPONSE = 2000
 JOB_TTL = 300  # seconds a finished job is kept after the client forgets it
-FILE_CHUNK = 256 * 1024
+FILE_CHUNK = 1024 * 1024
 
 TOKEN = os.environ.get("FOOQT_REMOTE_TOKEN", "")
 
@@ -447,9 +455,10 @@ def read_tags(path):
 # ---------------------------------------------------------------------------
 
 class ScanJob:
-    def __init__(self, scan_id, root):
+    def __init__(self, scan_id, root, known=None):
         self.id = scan_id
         self.root = root
+        self.known = known or {}
         self.entries = []
         self.counts = {"dirs": 0, "tracks": 0}
         self.lock = threading.Lock()
@@ -479,6 +488,16 @@ class ScanJob:
                     if ext not in AUDIO_EXTS:
                         continue
                     full = os.path.join(dirpath, fn)
+                    try:
+                        st = os.stat(full)
+                        mt, sz = int(st.st_mtime), st.st_size
+                    except OSError:
+                        continue
+                    if self.known.get(full) == [mt, sz]:
+                        # unchanged since the client's last scan: report the
+                        # fingerprint only, skip reading the tags
+                        self.add({"t": "f", "p": full, "mt": mt, "sz": sz, "u": 1})
+                        continue
                     tags = read_tags(full)
                     self.add({
                         "t": "f",
@@ -487,6 +506,8 @@ class ScanJob:
                         "title": tags.get("title"),
                         "album": tags.get("album"),
                         "dur": tags.get("duration"),
+                        "mt": mt,
+                        "sz": sz,
                     })
         except Exception as e:
             self.error = str(e)
@@ -678,12 +699,13 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/scan":
             scan_id = body.get("id")
             root = body.get("root")
+            known = body.get("known") or {}
             if not scan_id or not root:
                 return self._send(400, {"ok": False, "error": "id and root required"})
             with JOBS_LOCK:
                 existing = JOBS.get(scan_id)
                 if existing is None:
-                    job = ScanJob(scan_id, root)
+                    job = ScanJob(scan_id, root, known)
                     JOBS[scan_id] = job
                     threading.Thread(target=job.run, daemon=True).start()
                     return self._send(200, {"ok": True, "started": True})

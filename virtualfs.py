@@ -125,6 +125,43 @@ def getsize(path: str) -> int:
     return os.path.getsize(path)
 
 
+def listdir_stat(path: str) -> list:
+    """[(name, is_dir, mtime, size)] for every entry in one syscall/round-trip.
+
+    The scanner uses this to compare file fingerprints (mtime+size) without
+    extra stat calls per entry."""
+    if is_sftp_path(path):
+        sftp, remote_path = _get_sftp_and_path(path)
+        try:
+            attrs = sftp.listdir_attr(remote_path)
+        except OSError as e:
+            print("SFTP listdir failed for %s: %s" % (path, e))
+            return []
+        entries = []
+        for attr in attrs:
+            if attr.filename in (".", ".."):
+                continue
+            mode = attr.st_mode or 0
+            entries.append(
+                (
+                    attr.filename,
+                    bool(stat.S_ISDIR(mode)),
+                    float(attr.st_mtime or 0),
+                    int(attr.st_size or 0),
+                )
+            )
+        return entries
+    entries = []
+    with os.scandir(path) as it:
+        for entry in it:
+            try:
+                st = entry.stat()
+                entries.append((entry.name, entry.is_dir(), st.st_mtime, st.st_size))
+            except OSError:
+                continue
+    return entries
+
+
 def open_file_to_temp(path: str) -> tuple[str, bool]:
     """
     For SFTP files, download to a temp file and return its local path.

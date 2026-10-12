@@ -40,7 +40,7 @@ PORT_SPAN = 10
 REMOTE_DIR = ".local/lib/fooqt"
 AGENT_FILENAME = "remote_agent.py"
 POLL_INTERVAL = 1.5
-STREAM_CHUNK = 256 * 1024
+STREAM_CHUNK = 1024 * 1024
 
 
 class RemoteError(Exception):
@@ -327,15 +327,23 @@ class RemoteClient:
             self._start()
         raise RemoteError("agent on %s keeps rejecting the token" % self.hostname)
 
-    def scan(self, remote_root, on_entries, progress_cb=None):
+    def scan(self, remote_root, on_entries, progress_cb=None, known=None):
         """Scan remote_root on the remote host.
 
         `on_entries` is called with batches of entries as the remote scan
         progresses (progress sync over the agent port); each entry is
-        {"t": "d"|"f", "p": remote_path, ...tags...}. `progress_cb` receives a
-        short human-readable status message. Raises RemoteError on failure."""
+        {"t": "d"|"f", "p": remote_path, ...}. File entries carry "mt"/"sz"
+        (mtime/size) and, when they match `known`, "u": 1 without tags.
+        `known` maps remote file paths to [mtime, size] fingerprints of
+        files the client already has, letting the agent skip tag reading for
+        unchanged files. `progress_cb` receives a short human-readable
+        status message. Raises RemoteError on failure."""
         scan_id = uuid.uuid4().hex
-        status, data = self.request("POST", "/scan", {"id": scan_id, "root": remote_root})
+        status, data = self.request(
+            "POST",
+            "/scan",
+            {"id": scan_id, "root": remote_root, "known": known or {}},
+        )
         if status != 200 or not (data or {}).get("ok"):
             raise RemoteError("failed to start remote scan: %s" % (data,))
 

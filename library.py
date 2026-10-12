@@ -11,10 +11,8 @@ from virtualfs import (
     get_root_label,
     get_tree_path,
     is_sftp_path,
-    isdir,
-    isfile,
     join,
-    listdir,
+    listdir_stat,
     open_file_to_temp,
     parse_sftp_url,
 )
@@ -23,6 +21,7 @@ from virtualfs import (
 class Library:
     FOLDER_TABLE_NAME = "folder"
     TRACK_TABLE_NAME = "track"
+    STATS_TABLE_NAME = "track_stat"
 
     root_dir: str = ""
     selected_dir = ""
@@ -41,10 +40,22 @@ class Library:
         if not isDbExists:
             Track().create_table()
             Folder().create_table()
+        # needed on both fresh and pre-stats databases
+        self.ensureStatsTable()
         self.scanner = Scanner(self)
         # note: database.connect() returns a falsy value in both branches,
         # so don't gate on isDbExists; migration is a no-op on a fresh DB
         self.migrateGroupNames()
+
+    def ensureStatsTable(self):
+        """Per-file fingerprints (mtime+size) used to skip unchanged files
+        on rescan. Kept in its own table so the track table and the table
+        view (Track.colCount) stay untouched."""
+        database.db.execute(
+            "CREATE TABLE IF NOT EXISTS %s "
+            "(full_path text PRIMARY KEY, mtime real, size integer)"
+            % Library.STATS_TABLE_NAME
+        )
 
     def migrateGroupNames(self):
         """Recompute stored group names with the current get_short_dir_name
@@ -91,24 +102,15 @@ class Library:
             return self.library_dirs
         return [self.root_dir] if self.root_dir else []
 
-    def rescan(self, progress_cb=None):
-        all_dirs = self.getAllRootDirs()
-        self.scanner.existing_tracks = {}
-        for root in all_dirs:
-            tracks = Track().getAllByPath(root, "")
-            for t in tracks:
-                self.scanner.existing_tracks[t.full_path] = t
-        self.scanner.tracks = {}
+    def rescan(self, paths=None, progress_cb=None):
+        """Incrementally rescan the given subtrees (all roots when empty).
 
-        database.drop()
-        database.connect()
-
-        Track().create_table()
-        Folder().create_table()
-
-        for root in all_dirs:
-            self.scanner.parse(root, progress_cb)
-        self.scanner.tracks = []
+        Unchanged files (same mtime+size) are not re-read and their DB rows
+        are left untouched; only new/changed files are scanned and rows for
+        vanished files/folders are deleted."""
+        roots = self.getAllRootDirs()
+        targets = [p for p in (paths or roots) if p] or roots
+        self.scanner.rescan(targets, progress_cb)
 
 
 class Folder(database.Model):
@@ -240,41 +242,141 @@ class Track(database.Model):
 
 
 class Scanner:
-    existing_tracks: {}
     library: Library
     tracks = {}
 
     def __init__(self, library):
         self.library = library
 
-    def parse(self, dir_name, progress_cb=None):
-        all_roots = self.library.getAllRootDirs()
-        if dir_name in all_roots:
-            self.insert_dir(dir_name)
+    def rescan(self, targets, progress_cb=None):
+        self.tracks = {}
+        try:
+            for target in targets:
+                self.rescan_tree(target, progress_cb)
+        finally:
+            self.tracks = []
 
-        # SFTP roots are scanned by the remote agent on the remote machine
-        # itself; fall back to the slow per-file SFTP walk if unavailable.
-        if is_sftp_path(dir_name) and dir_name in all_roots:
-            if self.parse_remote(dir_name, progress_cb):
+    @staticmethod
+    def _under(parent, path):
+        """True when path is parent or lives inside it (exact prefix, unlike
+        the LIKE prefix used elsewhere)."""
+        return path == parent or path.startswith(parent.rstrip("/") + "/")
+
+    def rescan_tree(self, target, progress_cb=None):
+        # Any sftp target (root or subfolder) is scanned by the remote agent
+        # on the remote machine itself; fall back to the slow SFTP walk when
+        # the agent is unavailable.
+        if is_sftp_path(target):
+            if self.rescan_remote(target, progress_cb):
                 return
+        self.rescan_walk(target, progress_cb)
 
-        files = listdir(dir_name)
-        for f in files:
-            full_path = join(dir_name, f)
-            if isdir(full_path):
-                self.insert_dir(full_path)
-                self.parse(full_path)
+    def _existing_tracks_under(self, target):
+        existing = {}
+        for t in Track().getAllByPath(target, ""):
+            if self._under(target, t.dir_name):
+                existing[t.full_path] = t
+        return existing
+
+    def _existing_folders_under(self, target):
+        database.db.execute(f"SELECT path FROM {Library.FOLDER_TABLE_NAME}")
+        return {
+            row[0] for row in database.db.fetchall() if self._under(target, row[0])
+        }
+
+    def _load_stats_under(self, target):
+        database.db.execute(
+            f"SELECT full_path, mtime, size FROM {Library.STATS_TABLE_NAME}"
+        )
+        return {
+            row[0]: (row[1], row[2])
+            for row in database.db.fetchall()
+            if self._under(target, row[0])
+        }
+
+    def _save_stat(self, full_path, stat):
+        database.db.execute(
+            f"INSERT OR REPLACE INTO {Library.STATS_TABLE_NAME}"
+            " (full_path, mtime, size) VALUES (?, ?, ?)",
+            [full_path, stat[0], stat[1]],
+        )
+
+    def _delete_track_row(self, full_path):
+        database.db.execute(
+            f"DELETE FROM {Library.TRACK_TABLE_NAME} WHERE full_path = ?",
+            [full_path],
+        )
+        database.db.execute(
+            f"DELETE FROM {Library.STATS_TABLE_NAME} WHERE full_path = ?",
+            [full_path],
+        )
+
+    def _cleanup_vanished(
+        self, target, existing, seen_files, existing_folders, seen_dirs
+    ):
+        for path in existing:
+            if path not in seen_files:
+                self._delete_track_row(path)
+        for path in existing_folders - seen_dirs:
+            database.db.execute(
+                f"DELETE FROM {Library.FOLDER_TABLE_NAME} WHERE path = ?", [path]
+            )
+
+    def rescan_walk(self, target, progress_cb=None):
+        """Local subtree scan (also the SFTP fallback). Uses listdir_stat so
+        file fingerprints come for free with the directory listing."""
+        existing = self._existing_tracks_under(target)
+        existing_folders = self._existing_folders_under(target)
+        known_stats = self._load_stats_under(target)
+
+        seen_files = set()
+        seen_dirs = set()
+
+        def on_dir(path):
+            seen_dirs.add(path)
+            if path not in existing_folders:
+                self.insert_dir(path)
+
+        def on_file(path, mtime, size):
+            seen_files.add(path)
+            old = existing.get(path)
+            if old is not None:
+                known = known_stats.get(path)
+                if known is None or (known[0], known[1]) == (mtime, size):
+                    # Unchanged. "stat unknown yet" covers rows written
+                    # before fingerprint tracking existed: trust them once
+                    # and record the current stat for the next scan.
+                    self._save_stat(path, (mtime, size))
+                    return
+                self._delete_track_row(path)
+            self.insert_track(path, stat=(mtime, size), keep_skipped=old)
+
+        on_dir(target)
+        try:
+            self._walk(target, on_dir, on_file)
+        except OSError as e:
+            # A partial walk must not delete anything: bail out and keep the
+            # rows we did not manage to see.
+            print("Scan of %s failed: %s" % (target, e))
+            return
+
+        self._cleanup_vanished(
+            target, existing, seen_files, existing_folders, seen_dirs
+        )
+
+    def _walk(self, dir_name, on_dir, on_file):
+        for name, is_dir, mtime, size in listdir_stat(dir_name):
+            full_path = join(dir_name, name)
+            if is_dir:
+                on_dir(full_path)
+                self._walk(full_path, on_dir, on_file)
             else:
-                if isfile(full_path):
-                    if full_path in self.existing_tracks:
-                        self.existing_tracks[full_path].insert()
-                    else:
-                        self.insert_track(full_path)
+                on_file(full_path, mtime, size)
 
-    def parse_remote(self, root, progress_cb):
-        """Scan an sftp:// root through the remote agent. Returns True on
+    def rescan_remote(self, target, progress_cb=None):
+        """Scan an sftp subtree through the remote agent. Returns True on
         success, False if the agent could not be used (caller falls back)."""
-        host, remote_root = parse_sftp_url(root)
+        host, remote_target = parse_sftp_url(target)
         try:
             client = remote.get_client(host)
             client.ensure_agent()
@@ -285,33 +387,75 @@ class Scanner:
             )
             return False
 
+        existing = self._existing_tracks_under(target)
+        existing_folders = self._existing_folders_under(target)
+        known_stats = self._load_stats_under(target)
+
+        # Fingerprint map for the agent: files it recognises as unchanged are
+        # reported without tags, so the remote host skips reading them.
+        known = {}
+        for path, (mtime, size) in known_stats.items():
+            known[parse_sftp_url(path)[1]] = [int(mtime), int(size)]
+
+        seen_files = set()
+        seen_dirs = set()
+
         def on_entries(entries):
             for entry in entries:
                 full_path = "sftp://%s%s" % (host, entry["p"])
                 if entry["t"] == "d":
-                    self.insert_dir(full_path)
-                elif full_path in self.existing_tracks:
-                    self.existing_tracks[full_path].insert()
-                else:
-                    self.insert_track(
-                        full_path,
-                        tags={
-                            "duration": entry.get("dur"),
-                            "artist": entry.get("artist"),
-                            "title": entry.get("title"),
-                            "album": entry.get("album"),
-                        },
-                    )
+                    seen_dirs.add(full_path)
+                    if full_path not in existing_folders:
+                        self.insert_dir(full_path)
+                    continue
+
+                seen_files.add(full_path)
+                old = existing.get(full_path)
+                mt, sz = entry.get("mt"), entry.get("sz")
+                stat = (float(mt), int(sz)) if mt is not None else None
+
+                if old is not None and entry.get("u"):
+                    # Agent confirmed the file is unchanged: keep the row.
+                    if stat is not None:
+                        self._save_stat(full_path, stat)
+                    continue
+                if old is not None and stat is None:
+                    # Pre-1.2.0 agent without fingerprint support: the
+                    # stored row for a known path stays as it is.
+                    continue
+                if old is not None:
+                    self._delete_track_row(full_path)
+                self.insert_track(
+                    full_path,
+                    tags={
+                        "duration": entry.get("dur"),
+                        "artist": entry.get("artist"),
+                        "title": entry.get("title"),
+                        "album": entry.get("album"),
+                    },
+                    stat=stat,
+                    keep_skipped=old,
+                )
 
         try:
             client.scan(
-                remote_root,
+                remote_target,
                 on_entries,
                 progress_cb and (lambda msg: progress_cb(msg)),
+                known=known,
             )
         except Exception as e:
-            print("Remote scan failed for %s (%s)" % (root, e))
+            print("Remote scan failed for %s (%s)" % (target, e))
             return False
+
+        # The agent reports children only; the scan target itself is handled
+        # here and must count as seen so cleanup does not delete it.
+        seen_dirs.add(target)
+        if target not in existing_folders:
+            self.insert_dir(target)
+        self._cleanup_vanished(
+            target, existing, seen_files, existing_folders, seen_dirs
+        )
         return True
 
     def get_root_for_path(self, full_path):
@@ -380,10 +524,12 @@ class Scanner:
             print("Tag error for file", full_path)
         return tags
 
-    def insert_track(self, full_path, tags=None):
+    def insert_track(self, full_path, tags=None, stat=None, keep_skipped=None):
         """Insert a track. If tags (duration/artist/title/album) were already
         read by the remote agent they are reused instead of fetching the
-        file over SFTP."""
+        file over SFTP. keep_skipped carries the user's skip flag over from
+        the previous row of a re-read (changed) file; stat=(mtime, size) is
+        recorded so the next scan can skip the file."""
         track = Track()
 
         if full_path in self.tracks:
@@ -425,4 +571,9 @@ class Scanner:
         if not track.artist and not track.title:
             track.title = track.basename
 
+        if keep_skipped is not None:
+            track.skipped = keep_skipped.skipped
+
         track.insert()
+        if stat is not None:
+            self._save_stat(full_path, stat)

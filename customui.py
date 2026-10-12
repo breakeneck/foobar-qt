@@ -6,6 +6,7 @@ import qtawesome as qta
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from library import Folder, Library, Track
+from lyrics import Lyrics
 from player import Player
 from virtualfs import dirname
 
@@ -16,7 +17,7 @@ ICON_NAMES = {
     "nextBtn": "mdi.skip-next",
     "prevBtn": "mdi.skip-previous",
     "nextRndBtn": "mdi.chevron-right",
-    "stopAfterBtn": "mdi.radio-off",
+    "stopAfterBtn": "mdi.stop-circle-outline",
     "rndOrderBtn": "mdi.playlist-play",
     "browseDirBtn": "mdi.folder-open",
     "rescanLibBtn": "mdi.refresh",
@@ -40,12 +41,19 @@ def rethemeIcons(main):
     # PaletteChange events can arrive repeatedly; only re-render when the
     # glyph color actually changed
     global _last_icon_color
-    color = main.palette().color(QtGui.QPalette.ColorRole.ButtonText).name()
+    palette = main.palette()
+    color = palette.color(QtGui.QPalette.ColorRole.ButtonText).name()
     if color == _last_icon_color:
         return
     _last_icon_color = color
+    # the armed toggle renders in the accent colour so "stop after current"
+    # is recognisable at a glance (qtawesome uses QIcon On/Off states)
+    highlight = palette.color(QtGui.QPalette.ColorRole.Highlight).name()
     for attr, name in ICON_NAMES.items():
-        getattr(main, attr).setIcon(qta.icon(name, color=color))
+        if attr == "stopAfterBtn":
+            getattr(main, attr).setIcon(qta.icon(name, color=color, color_on=highlight))
+        else:
+            getattr(main, attr).setIcon(qta.icon(name, color=color))
     # playBtn's icon depends on the playback state
     main.updatePlayStatus()
 
@@ -62,7 +70,7 @@ def postSetup(main):
     main.statusbar.setObjectName("statusbar")
     main.setStatusBar(main.statusbar)
     main.themeCombo.addItems(QtWidgets.QStyleFactory.keys())
-    main.lyricsCombo.addItems(main.lyrics.PROVIDERS)
+    main.lyricsCombo.addItems(Lyrics.PROVIDERS)
     main.posSlider.setMaximum(1000)
     main.treeView.setModel(main.treeModel)
     main.tableView.setModel(main.tableModel)

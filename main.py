@@ -30,8 +30,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config = config.Config(self)
         self.library = Library(self.config.getLibraryDirs())
         self.player = Player()
-        self.lyrics = Lyrics()
-        self.lyricsThread = None
+        # (QThread, Lyrics) pairs kept referenced until they finish
+        self._lyricsWorkers = []
+        self._lyricsRequest = 0
         self.lastfm = LastFM(self.config)
 
         # make post ui setup after library is initialized
@@ -247,26 +248,50 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if self.player.now_playing:
             self.findLyrics()
 
+    # A plain QThread's run() is exec(): after Lyrics.run (connected to
+    # started) returns, the thread's event loop keeps running until quit().
+    # quit() cannot interrupt a blocking network call, and deleting a QThread
+    # while it is still running aborts the process ("QThread: Destroyed while
+    # thread is still running"). Superseded workers are therefore asked to
+    # quit and kept referenced until they finish on their own; their late
+    # results are discarded via the request counter instead of overwriting
+    # the lyrics of the current track.
     def findLyrics(self):
-        # Stop the previous lyrics thread properly
-        if self.lyricsThread is not None:
-            self.lyricsThread.quit()
-            self.lyricsThread.wait(500)  # Give it time to finish
-            self.lyricsThread.deleteLater()
-            self.lyricsThread = None
+        self._lyricsRequest += 1
+        request_id = self._lyricsRequest
 
-        self.lyricsThread = QThread(self)
-        self.lyrics = Lyrics()
-        self.lyrics.setConfig(self.config, self.player)
-        self.lyrics.moveToThread(self.lyricsThread)
+        for thread, _ in self._lyricsWorkers:
+            thread.quit()
+
+        thread = QThread(self)
+        lyrics = Lyrics()
+        lyrics.setConfig(self.config, self.player)
+        lyrics.moveToThread(thread)
+
+        worker = (thread, lyrics)
+        self._lyricsWorkers.append(worker)
+
+        def show(text):
+            if request_id == self._lyricsRequest:
+                self.lyricsTxt.setText(text)
+
+        def cleanup():
+            # Only ever reached once the thread has finished, so deleting
+            # here is safe.
+            if worker in self._lyricsWorkers:
+                self._lyricsWorkers.remove(worker)
+            lyrics.deleteLater()
+            thread.deleteLater()
 
         # Connect signals before starting the thread
-        self.lyricsThread.started.connect(self.lyrics.run)
-        self.lyrics.finished.connect(lambda text: self.lyricsTxt.setText(text))
-        self.lyrics.finished.connect(self.lyrics.deleteLater)
-        self.lyricsThread.finished.connect(self.lyricsThread.deleteLater)
+        thread.started.connect(lyrics.run)
+        lyrics.finished.connect(show)
+        # Leave the event loop once the lookup is done, otherwise the
+        # thread stays alive forever.
+        lyrics.finished.connect(thread.quit)
+        thread.finished.connect(cleanup)
 
-        self.lyricsThread.start()
+        thread.start()
 
     def next(self):
         nextIndex = self.tableModel.getNextIndex()
@@ -290,7 +315,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         else:
             self.stop()
 
-    def rescanLibrary(self):
+    def rescanLibrary(self, full=False):
         if getattr(self, "_scanning", False):
             return
         self._scanning = True
@@ -300,11 +325,18 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.statusbar.showMessage("Scanning... " + msg)
             QtWidgets.QApplication.processEvents()
 
+        # Only the selected subtree is rescanned; a root (or nothing)
+        # selected means the whole library.
+        target = self.library.selected_dir
+        roots = self.library.getAllRootDirs()
+        paths = roots if full or not target or target in roots else [target]
+
         try:
-            self.library.rescan(progress)
+            self.library.rescan(paths, progress)
         finally:
             self._scanning = False
         self.treeModel.loadTreeData(self.treeView)
+        self.tableModel.refreshPlaylist(self.searchEdit.text())
         self.statusbar.showMessage("Scan completed", 3000)
         print(
             "--- Library scan is completed in %s seconds ---"
@@ -328,7 +360,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             if is_sftp_path(directory):
                 self.statusbar.showMessage("Checking remote agent...")
                 QtWidgets.QApplication.processEvents()
-            self.rescanLibrary()
+            self.rescanLibrary(full=True)
             self.config.save()
 
     def setPos(self):
@@ -392,12 +424,17 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.tableView.setSpan(row, 0, 1, Track.colCount())
 
     def closeEvent(self, event):
-        # Stop lyrics thread before closing
-        if self.lyricsThread is not None:
-            self.lyricsThread.quit()
-            self.lyricsThread.wait(500)
-            self.lyricsThread.deleteLater()
-            self.lyricsThread = None
+        # Ask in-flight workers to leave their event loops, then wait for
+        # them: a QThread left running when the window is destroyed (it is
+        # the threads' parent) would abort the process. terminate() is only
+        # a last resort for threads stuck in a blocking network call.
+        for thread, _ in self._lyricsWorkers:
+            thread.quit()
+        for thread, _ in self._lyricsWorkers:
+            if not thread.wait(3000):
+                thread.terminate()
+                thread.wait(1000)
+        self._lyricsWorkers.clear()
 
         get_sftp_manager().close_all()
         self.config.save()
