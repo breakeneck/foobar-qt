@@ -15,16 +15,33 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
         self.setupUi(self)
         self.saveConfigButton.clicked.connect(self.confirm)
 
+        # audio buffer slider: 1.0-3.0 s in 0.1 s steps (value is in 100 ms)
+        self.audioCachingSlider.setRange(10, 30)
+        self.audioCachingSlider.setSingleStep(1)
+        self.audioCachingSlider.setPageStep(5)
+        self.audioCachingSlider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
+        self.audioCachingSlider.setTickInterval(5)
+        self.audioCachingSlider.setValue(30)
+        self.audioCachingSlider.valueChanged.connect(self._cachingChanged)
+
+    def _cachingChanged(self, value):
+        self.audioCachingValue.setText(f"{value / 10:.1f} s")
+
+    def setAudioCachingMs(self, ms):
+        self.audioCachingSlider.setValue(int(ms) // 100)
+
+    def getAudioCachingMs(self):
+        return self.audioCachingSlider.value() * 100
+
     def confirm(self):
         self.close()
-        genius_token, lastfm_username, lastfm_password = (
+        values = (
             self.geniusToken.text(),
             self.lastFmUsername.text(),
             self.lastFmPassword.text(),
+            self.getAudioCachingMs(),
         )
-        self.confirmed.emit(
-            json.dumps((genius_token, lastfm_username, lastfm_password))
-        )
+        self.confirmed.emit(json.dumps(values))
 
 
 class AddLibraryDirDialog(QtWidgets.QDialog):

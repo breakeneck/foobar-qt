@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>459</width>
-    <height>310</height>
+    <height>400</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -27,7 +27,7 @@
    <property name="geometry">
     <rect>
      <x>330</x>
-     <y>260</y>
+     <y>350</y>
      <width>107</width>
      <height>38</height>
     </rect>
@@ -105,6 +105,45 @@
    </property>
    <property name="textInteractionFlags">
     <set>Qt::TextBrowserInteraction</set>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>270</y>
+     <width>431</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Audio buffer (higher values fix stuttering over SSH)</string>
+   </property>
+  </widget>
+  <widget class="QSlider" name="audioCachingSlider">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>295</y>
+     <width>341</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="orientation">
+    <enum>Qt::Horizontal</enum>
+   </property>
+  </widget>
+  <widget class="QLabel" name="audioCachingValue">
+   <property name="geometry">
+    <rect>
+     <x>360</x>
+     <y>295</y>
+     <width>81</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>3.0 s</string>
    </property>
   </widget>
  </widget>

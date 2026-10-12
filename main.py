@@ -30,6 +30,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.config = config.Config(self)
         self.library = Library(self.config.getLibraryDirs())
         self.player = Player()
+        self.player.network_caching_ms = self.config.getAudioCachingMs()
         # (QThread, Lyrics) pairs kept referenced until they finish
         self._lyricsWorkers = []
         self._lyricsRequest = 0
@@ -407,10 +408,17 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         dialog.geniusToken.setText(self.config.getLyricsGeniusToken())
         dialog.lastFmUsername.setText(self.config.getLastFmUsername())
         dialog.lastFmPassword.setText(self.config.getLastFmPassword())
+        dialog.setAudioCachingMs(self.config.getAudioCachingMs())
         dialog.exec()
 
     def saveSettingsFromDialog(self, values):
         self.config.saveDialogData(json.loads(values))
+        self.player.network_caching_ms = self.config.getAudioCachingMs()
+        ms = self.config.getAudioCachingMs()
+        self.statusbar.showMessage(
+            f"Audio buffer: {ms / 1000:.1f} s (applies from the next track)",
+            5000,
+        )
 
     def setVolume(self, volume):
         self.player.setVolume(volume)

@@ -25,6 +25,7 @@ class Config:
                 "selected_dir_row": -1,
                 "column_sizes": [45, 250, 113, 113, 113, 113, 113, 113, 113, 113, 113],
                 "volume": 100,
+                "audio_caching_ms": 3000,
                 "lyrics_genius_token": "",
                 "lyrics_provider": "",
                 "rndOrder": False,
@@ -130,6 +131,11 @@ class Config:
                 item.dbModel.is_expanded = int(self.w.treeView.isExpanded(item.index()))
                 item.dbModel.update()
 
+    def getAudioCachingMs(self):
+        # clamp to the range the Settings slider can produce (1.0-3.0 s)
+        ms = int(self.config.get("audio_caching_ms", 3000))
+        return max(1000, min(3000, ms))
+
     def getTreeViewItem(self):
         return self.config["treeview_path"]
 
@@ -189,10 +195,13 @@ class Config:
         )
 
     def saveDialogData(self, values):
-        lyrics_genius_token, lastfm_username, lastfm_password = values
+        lyrics_genius_token, lastfm_username, lastfm_password, audio_caching_ms = (
+            values
+        )
         self.config["lyrics_genius_token"] = lyrics_genius_token
         self.config["lastfm_username"] = lastfm_username
         self.config["lastfm_password"] = lastfm_password
+        self.config["audio_caching_ms"] = audio_caching_ms
         self.save()
 
     def getAddDirForm(self):

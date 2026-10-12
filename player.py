@@ -18,19 +18,18 @@ class Player:
     # Track temp files created for SFTP playback
     _last_temp_file: str = ""
 
-    # VLC ring buffer (ms) for network streams. SSH-proxied audio arrives in
-    # bursts; VLC's 1000 ms default underruns and stutters. 3000 ms smooths
-    # the jitter at the cost of a slightly longer initial fill before playback.
-    NETWORK_CACHING_MS = 3000
+    # Default VLC ring buffer (ms) for network streams. SSH-proxied audio
+    # arrives in bursts; VLC's 1000 ms default underruns and stutters.
+    # Overridden from config.json (audio_caching_ms), adjustable in Settings.
+    DEFAULT_NETWORK_CACHING_MS = 3000
 
     def __init__(self):
-        self.instance = vlc.Instance(
-            [f"--network-caching={self.NETWORK_CACHING_MS}"]
-        )
+        self.instance = vlc.Instance()
         self.mediaplayer = self.instance.media_player_new()
         self.paused = False
         self.now_playing_row = -1
         self.now_playing = None
+        self.network_caching_ms = self.DEFAULT_NETWORK_CACHING_MS
 
     def onPlayStart(self):
         pass
@@ -88,6 +87,9 @@ class Player:
 
         try:
             media = self.instance.media_new(play_path)
+            # Per-media so a Settings change applies from the next track
+            # without recreating the VLC instance.
+            media.add_option(f":network-caching={self.network_caching_ms}")
             self.mediaplayer.set_media(media)
         except:
             self.paused = True
