@@ -97,6 +97,26 @@ class Library:
             if directory == self.root_dir:
                 self.root_dir = self.library_dirs[0] if self.library_dirs else ""
 
+    def purgeDir(self, directory):
+        """Delete the cached rows (tracks, folders, stats) of a library root.
+
+        Uses an escaped LIKE prefix so a sibling like 'Music2' is not caught
+        by a 'Music' removal ('%' and '_' in the path are escaped)."""
+        like = (
+            directory.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            + "/%"
+        )
+        for table, path_col in (
+            (Library.TRACK_TABLE_NAME, "dir_name"),
+            (Library.FOLDER_TABLE_NAME, "path"),
+            (Library.STATS_TABLE_NAME, "full_path"),
+        ):
+            database.db.execute(
+                "DELETE FROM %s WHERE %s = ? OR %s LIKE ? ESCAPE '\\'"
+                % (table, path_col, path_col),
+                [directory, like],
+            )
+
     def getAllRootDirs(self):
         if self.library_dirs:
             return self.library_dirs
@@ -193,17 +213,16 @@ class Track(database.Model):
         return [*self.__dict__.keys()]
 
     def getAllByPath(self, path, query=""):
-        condition = (
-            f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")' if query else ""
-        )
-        condition += (" AND " if condition else "") + (
-            f'(dir_name LIKE "{path}%")' if path else ""
-        )
-        condition += " ORDER BY full_path"
+        conditions = []
+        if query:
+            conditions.append(f'(title LIKE "%{query}%" OR artist LIKE "%{query}%")')
+        if path:
+            conditions.append(f'(dir_name LIKE "{path}%")')
 
         database.db.execute(
             f"SELECT * FROM {self.tableName}"
-            + (f" WHERE {condition}" if condition else "")
+            + (" WHERE " + " AND ".join(conditions) if conditions else "")
+            + " ORDER BY full_path"
         )
         return map(lambda row: Track().load(row), database.db.fetchall())
 

@@ -2,20 +2,19 @@ import json
 import sys
 import time
 
-import keyboard
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QThread
-from PyQt6.QtGui import QShortcut
 
 import appicon
 import config
 import customui
 import design
+import hotkeys
 import remote
 from dialogs import AddLibraryDirDialog, SettingsDialog
-from virtualfs import is_sftp_path
+from virtualfs import get_root_label, is_sftp_path
 from lastfm import LastFM
-from library import Library, Track
+from library import Library, Scanner, Track
 from lyrics import Lyrics
 from player import Player
 from sftp import get_sftp_manager
@@ -42,6 +41,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         # Load config goes after postSetupUi() to be able to restore columns width
         self.config.load(app)
         self.connectEvents(app)
+
+        # keyboard control: remappable in-app shortcuts + KDE global hotkeys
+        self.hotkeys = hotkeys.HotkeyManager(self)
+        report = self.hotkeys.apply(self.config.getHotkeys())
+        if report:
+            self.statusbar.showMessage(
+                "Global shortcut failed: %s" % report[0][2], 5000
+            )
 
         self.tableModel.refreshPlaylist(self.searchEdit.text())
         self.treeModel.loadTreeData(self.treeView)
@@ -75,15 +82,9 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.expandBtn.clicked.connect(self.expandBtnClick)
         self.volumeSlider.valueChanged.connect(self.setVolume)
         self.followTreeView.clicked.connect(self.locateCurrentFolder)
-        # shortcuts
-        QShortcut(QtGui.QKeySequence("Ctrl+S"), self).activated.connect(self.skipTrack)
-        QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Space), self).activated.connect(
-            self.playBtnClick
-        )
-        QShortcut(QtGui.QKeySequence("Ctrl+H"), self).activated.connect(
-            self.showMinimized
-        )
-        QShortcut(QtGui.QKeySequence("Ctrl+F"), self).activated.connect(self.goToSearch)
+        # media library management lives in the tree's context menu
+        self.treeView.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.treeView.customContextMenuRequested.connect(self.treeContextMenu)
 
     def themeChanged(self):
         QtWidgets.QApplication.instance().setStyle(self.themeCombo.currentText())
@@ -172,9 +173,38 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self.searchChanged()
 
     def keyPressEvent(self, e: QtGui.QKeyEvent):
-        if e.key() == QtCore.Qt.Key_Escape:
-            self.searchClear()
-        pass
+        # Escape is not a QShortcut on purpose: window-wide shortcuts take
+        # precedence over the focused QLineEdit, which would break clearing
+        # the search. Priority: clear search -> minimize (its default binding)
+        if e.key() == QtCore.Qt.Key.Key_Escape:
+            if self.searchEdit.hasFocus() and self.searchEdit.text():
+                self.searchClear()
+                return
+            manager = getattr(self, "hotkeys", None)
+            if manager is not None and manager.localFor("minimize") == hotkeys.ESCAPE:
+                self.showMinimized()
+                return
+        super().keyPressEvent(e)
+
+    def onHotkey(self, action_id):
+        handlers = {
+            "play_pause": self.playBtnClick,
+            "next": self.next,
+            "prev": self.prev,
+            "minimize": self.showMinimized,
+            "search": self.goToSearch,
+            "skip_track": self.skipTrack,
+        }
+        handler = handlers.get(action_id)
+        if handler is not None:
+            handler()
+
+    def applyHotkeys(self, mapping):
+        """Store + activate a hotkey mapping. Returns global-registration
+        failures as (label, sequence, message) triples."""
+        report = self.hotkeys.apply(mapping)
+        self.config.saveHotkeys(mapping)
+        return report
 
     def searchChanged(self):
         self.tableModel.refreshPlaylist(self.searchEdit.text())
@@ -332,12 +362,21 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         roots = self.library.getAllRootDirs()
         paths = roots if full or not target or target in roots else [target]
 
+        failed = None
         try:
             self.library.rescan(paths, progress)
+        except Exception as e:
+            # the library list may already have changed (e.g. a dir was just
+            # added): the models must refresh regardless of the scan outcome
+            failed = e
+            print("Library scan failed: %r" % e)
         finally:
             self._scanning = False
         self.treeModel.loadTreeData(self.treeView)
         self.tableModel.refreshPlaylist(self.searchEdit.text())
+        if failed is not None:
+            self.statusbar.showMessage("Scan failed: %s (try Rescan)" % failed, 5000)
+            return
         self.statusbar.showMessage("Scan completed", 3000)
         print(
             "--- Library scan is completed in %s seconds ---"
@@ -358,11 +397,90 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if directory:
             self.config.addLibraryDir(directory)
             self.library.addDir(directory)
+            # persist before scanning: an unreachable host must not make the
+            # newly added library disappear on restart
+            self.config.save()
             if is_sftp_path(directory):
                 self.statusbar.showMessage("Checking remote agent...")
                 QtWidgets.QApplication.processEvents()
             self.rescanLibrary(full=True)
-            self.config.save()
+
+    def treeContextMenu(self, pos):
+        index = self.treeView.indexAt(pos)
+        item = self.treeModel.itemFromIndex(index) if index.isValid() else None
+        menu = QtWidgets.QMenu(self)
+        if item is None:
+            menu.addAction("(right-click a library to manage it)").setEnabled(False)
+            menu.exec(self.treeView.viewport().mapToGlobal(pos))
+            return
+
+        root_item = item
+        while root_item.parent() is not None:
+            root_item = root_item.parent()
+        path = root_item.dbModel.path
+        label = get_root_label(path)
+
+        rescan_action = menu.addAction("Rescan library '%s'" % label)
+        menu.addSeparator()
+        remove_action = menu.addAction("Remove library '%s'..." % label)
+
+        chosen = menu.exec(self.treeView.viewport().mapToGlobal(pos))
+        if chosen is rescan_action:
+            self.rescanOneLibrary(path)
+        elif chosen is remove_action:
+            self.removeLibrary(path)
+
+    def rescanOneLibrary(self, path):
+        if getattr(self, "_scanning", False):
+            return
+        self._scanning = True
+
+        def progress(msg):
+            self.statusbar.showMessage("Scanning... " + msg)
+            QtWidgets.QApplication.processEvents()
+
+        failed = None
+        try:
+            self.library.rescan([path], progress)
+        except Exception as e:
+            failed = e
+            print("Library scan failed: %r" % e)
+        finally:
+            self._scanning = False
+        self.treeModel.loadTreeData(self.treeView)
+        self.tableModel.refreshPlaylist(self.searchEdit.text())
+        if failed is not None:
+            self.statusbar.showMessage("Scan failed: %s" % failed, 5000)
+        else:
+            self.statusbar.showMessage("Scan completed", 3000)
+
+    def removeLibrary(self, path):
+        label = get_root_label(path)
+        answer = QtWidgets.QMessageBox.question(
+            self,
+            "Remove library",
+            "Remove library '%s'?\n\n%s\n\nThe cached tracks and folders of this "
+            "library will be deleted from the database. The files themselves are "
+            "not touched." % (label, path),
+            QtWidgets.QMessageBox.StandardButton.Yes
+            | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.No,
+        )
+        if answer != QtWidgets.QMessageBox.StandardButton.Yes:
+            return
+
+        if self.player.now_playing and Scanner._under(path, self.player.now_playing.full_path):
+            self.stop()
+
+        self.library.removeDir(path)
+        self.library.purgeDir(path)
+        self.config.removeLibraryDir(path)
+        self.library.selected_dir = ""
+        self.library.selected_dir_row = -1
+        self.treeModel.loadTreeData(self.treeView)
+        self.tableModel.refreshPlaylist(self.searchEdit.text())
+        self.config.save()
+        self.statusbar.showMessage("Library '%s' removed" % label, 3000)
 
     def setPos(self):
         self.timer.stop()
@@ -381,7 +499,10 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             except Exception as e:
                 print(str(e))
             if self.stopAfterBtn.isChecked():
-                self.stopAfterBtn.setChecked(False)
+                # "auto" fires once; "persistent" keeps the button armed so
+                # every track played afterwards stops when it ends
+                if self.config.getStopAfterMode() == "auto":
+                    self.stopAfterBtn.setChecked(False)
                 self.stop()
             else:
                 self.nextRnd() if self.rndOrderBtn.isChecked() else self.next()
@@ -409,6 +530,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         dialog.lastFmUsername.setText(self.config.getLastFmUsername())
         dialog.lastFmPassword.setText(self.config.getLastFmPassword())
         dialog.setAudioCachingMs(self.config.getAudioCachingMs())
+        dialog.setStopAfterMode(self.config.getStopAfterMode())
         dialog.exec()
 
     def saveSettingsFromDialog(self, values):
@@ -444,6 +566,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
                 thread.wait(1000)
         self._lyricsWorkers.clear()
 
+        self.hotkeys.shutdown()
         get_sftp_manager().close_all()
         self.config.save()
         event.accept()

@@ -34,6 +34,8 @@ class Config:
                 "tableview_scroll_pos": 0,
                 "treeview_path": "",
                 "add_dir_form": {},
+                "hotkeys": {},
+                "stop_after_mode": "auto",
             }
 
         self._migrate_dirs()
@@ -151,8 +153,23 @@ class Config:
                 self.config["library_dir"] = directory
 
     def removeLibraryDir(self, directory):
-        if directory in self.config["library_dirs"]:
-            self.config["library_dirs"].remove(directory)
+        dirs = self.config.get("library_dirs", [])
+        if directory in dirs:
+            dirs.remove(directory)
+
+        prefix = directory.rstrip("/") + "/"
+
+        def under(path):
+            return path == directory or (path or "").startswith(prefix)
+
+        # reset every pointer that still aims inside the removed library
+        if under(self.config.get("library_dir", "")):
+            self.config["library_dir"] = dirs[0] if dirs else ""
+        if under(self.config.get("selected_dir", "")):
+            self.config["selected_dir"] = ""
+            self.config["selected_dir_row"] = -1
+        if under(self.config.get("treeview_path", "")):
+            self.config["treeview_path"] = ""
 
     def getLibraryDirsList(self):
         return self.config.get("library_dirs", [])
@@ -195,13 +212,18 @@ class Config:
         )
 
     def saveDialogData(self, values):
-        lyrics_genius_token, lastfm_username, lastfm_password, audio_caching_ms = (
-            values
-        )
+        (
+            lyrics_genius_token,
+            lastfm_username,
+            lastfm_password,
+            audio_caching_ms,
+            stop_after_mode,
+        ) = values
         self.config["lyrics_genius_token"] = lyrics_genius_token
         self.config["lastfm_username"] = lastfm_username
         self.config["lastfm_password"] = lastfm_password
         self.config["audio_caching_ms"] = audio_caching_ms
+        self.config["stop_after_mode"] = stop_after_mode
         self.save()
 
     def getAddDirForm(self):
@@ -216,3 +238,16 @@ class Config:
 
     def setLyricsProvider(self, text):
         self.config["lyrics_provider"] = text
+
+    def getHotkeys(self):
+        import hotkeys
+
+        return hotkeys.normalize(self.config.get("hotkeys", {}))
+
+    def saveHotkeys(self, mapping):
+        self.config["hotkeys"] = mapping
+        self.save()
+
+    def getStopAfterMode(self):
+        mode = self.config.get("stop_after_mode", "auto")
+        return mode if mode in ("auto", "persistent") else "auto"

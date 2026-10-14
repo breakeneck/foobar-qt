@@ -1,8 +1,9 @@
 import json
 import os
 
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 
+import hotkeys
 from dialog import Ui_Dialog
 from virtualfs import test_connection
 
@@ -24,6 +25,39 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
         self.audioCachingSlider.setValue(30)
         self.audioCachingSlider.valueChanged.connect(self._cachingChanged)
 
+        # stop-after-current behaviour (the .ui uses absolute geometry,
+        # so new widgets are placed below the audio slider)
+        self.stopAfterLabel = QtWidgets.QLabel(
+            "When 'Stop after current' triggers:", self
+        )
+        self.stopAfterLabel.setGeometry(QtCore.QRect(10, 330, 431, 22))
+        self.stopAfterCombo = QtWidgets.QComboBox(self)
+        self.stopAfterCombo.setGeometry(QtCore.QRect(10, 355, 431, 31))
+        self.stopAfterCombo.addItems(
+            [
+                "Uncheck the button (stop once per activation)",
+                "Keep the button checked (stop after every played track)",
+            ]
+        )
+        self.hotkeysBtn = QtWidgets.QPushButton("Keyboard shortcuts...", self)
+        self.hotkeysBtn.setGeometry(QtCore.QRect(10, 400, 200, 38))
+        self.hotkeysBtn.clicked.connect(self.openHotkeysDialog)
+        self.saveConfigButton.setGeometry(QtCore.QRect(330, 400, 107, 38))
+        self.resize(459, 450)
+
+    def openHotkeysDialog(self):
+        # parent() is the FooQt window (SettingsDialog is built with it)
+        window = self.parent()
+        if window is None or not hasattr(window, "hotkeys"):
+            return
+        HotkeysDialog(window, self).exec()
+
+    def setStopAfterMode(self, mode):
+        self.stopAfterCombo.setCurrentIndex(0 if mode == "auto" else 1)
+
+    def getStopAfterMode(self):
+        return "auto" if self.stopAfterCombo.currentIndex() == 0 else "persistent"
+
     def _cachingChanged(self, value):
         self.audioCachingValue.setText(f"{value / 10:.1f} s")
 
@@ -40,8 +74,94 @@ class SettingsDialog(QtWidgets.QDialog, Ui_Dialog):
             self.lastFmUsername.text(),
             self.lastFmPassword.text(),
             self.getAudioCachingMs(),
+            self.getStopAfterMode(),
         )
         self.confirmed.emit(json.dumps(values))
+
+
+class HotkeysDialog(QtWidgets.QDialog):
+    """Maps FooQt actions to in-app and (on KDE) global shortcuts."""
+
+    def __init__(self, window, parent=None):
+        super().__init__(parent)
+        self.fooqtWindow = window
+        self.setWindowTitle("Keyboard shortcuts")
+        self.setModal(True)
+
+        layout = QtWidgets.QGridLayout(self)
+        self.localEdits = {}
+        self.globalEdits = {}
+
+        self.globalSupported = window.hotkeys.globalAccel.available()
+
+        for column, title in enumerate(("Action", "In-app shortcut", "Global shortcut")):
+            header = QtWidgets.QLabel("<b>%s</b>" % title)
+            layout.addWidget(header, 0, column)
+
+        mapping = window.config.getHotkeys()
+        row = 1
+        for action_id, label, _default in hotkeys.ACTIONS:
+            layout.addWidget(QtWidgets.QLabel(label), row, 0)
+
+            local = QtWidgets.QKeySequenceEdit(self)
+            local.setKeySequence(QtGui.QKeySequence(mapping[action_id]["local"]))
+            layout.addWidget(local, row, 1)
+            self.localEdits[action_id] = local
+
+            global_edit = QtWidgets.QKeySequenceEdit(self)
+            global_edit.setKeySequence(QtGui.QKeySequence(mapping[action_id]["global"]))
+            global_edit.setEnabled(self.globalSupported)
+            layout.addWidget(global_edit, row, 2)
+            self.globalEdits[action_id] = global_edit
+            row += 1
+
+        if self.globalSupported:
+            note_text = (
+                "Global shortcuts are registered with KDE (KWin). Prefer a "
+                "modifier combo (e.g. Ctrl+Alt+P) or a media key (Play, Next). "
+                "QKeySequenceEdit cannot capture bare Escape, but Escape stays "
+                "the Minimize default (it clears the search first when the "
+                "search field holds text)."
+            )
+        else:
+            note_text = (
+                "Global shortcuts require a KDE (KWin) session with the gdbus "
+                "tool; unavailable here, so only in-app shortcuts apply."
+            )
+        note = QtWidgets.QLabel(note_text)
+        note.setWordWrap(True)
+        note.setStyleSheet("color: gray;")
+        layout.addWidget(note, row, 0, 1, 3)
+        row += 1
+
+        buttons = QtWidgets.QHBoxLayout()
+        save = QtWidgets.QPushButton("Save")
+        save.clicked.connect(self._save)
+        cancel = QtWidgets.QPushButton("Cancel")
+        cancel.clicked.connect(self.reject)
+        buttons.addStretch()
+        buttons.addWidget(save)
+        buttons.addWidget(cancel)
+        layout.addLayout(buttons, row, 0, 1, 3)
+
+        self.setMinimumWidth(560)
+
+    def _save(self):
+        mapping = {}
+        for action_id, _label, _default in hotkeys.ACTIONS:
+            mapping[action_id] = {
+                "local": self.localEdits[action_id].keySequence().toString(),
+                "global": self.globalEdits[action_id].keySequence().toString(),
+            }
+        report = self.fooqtWindow.applyHotkeys(mapping)
+        if report:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Global shortcuts",
+                "Could not register some global shortcuts:\n"
+                + "\n".join("%s (%s): %s" % entry for entry in report),
+            )
+        self.accept()
 
 
 class AddLibraryDirDialog(QtWidgets.QDialog):

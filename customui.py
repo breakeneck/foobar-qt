@@ -37,6 +37,33 @@ def themed_icon(widget, name):
     return qta.icon(name, color=color.name())
 
 
+def applySearchHighlight(main):
+    # a thick accent border: instantly obvious which one is the search field
+    accent = main.palette().color(QtGui.QPalette.ColorRole.Highlight).name()
+    main.searchEdit.setStyleSheet(
+        "QLineEdit#searchEdit { border: 2px solid %s; border-radius: 4px; }" % accent
+    )
+
+
+def clearSearchHighlight(main):
+    main.searchEdit.setStyleSheet("")
+
+
+class SearchFocusWatcher(QtCore.QObject):
+    """Keeps the search field visibly highlighted while it has focus."""
+
+    def __init__(self, main):
+        super().__init__(main)
+        self.main = main
+
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Type.FocusIn:
+            applySearchHighlight(self.main)
+        elif event.type() == QtCore.QEvent.Type.FocusOut:
+            clearSearchHighlight(self.main)
+        return False
+
+
 def rethemeIcons(main):
     # PaletteChange events can arrive repeatedly; only re-render when the
     # glyph color actually changed
@@ -56,6 +83,9 @@ def rethemeIcons(main):
             getattr(main, attr).setIcon(qta.icon(name, color=color))
     # playBtn's icon depends on the playback state
     main.updatePlayStatus()
+    # the focused search field is outlined in the accent colour too
+    if main.searchEdit.hasFocus():
+        applySearchHighlight(main)
 
 
 def postSetup(main):
@@ -82,6 +112,7 @@ def postSetup(main):
     main.volumeSlider.setFixedWidth(100)
     main.statusbar.addPermanentWidget(main.volumeSlider)
     main.searchEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
+    main.searchEdit.installEventFilter(SearchFocusWatcher(main))
     main.tableView.setFocusPolicy(QtCore.Qt.StrongFocus)
     rethemeIcons(main)
 
