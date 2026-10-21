@@ -19,8 +19,8 @@ NOTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "musical-no
 TILE_TOP = QColor("#4a90d9")
 TILE_BOTTOM = QColor("#2c6fb0")
 GLYPH_COLOR = QColor("#ffffff")
-BASE_SIZE = 256
-ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256)
+BASE_SIZE = 512
+ICON_SIZES = (16, 22, 24, 32, 48, 64, 128, 256, 512)
 
 _APP = None
 
@@ -90,11 +90,11 @@ def build_icon() -> QIcon:
     return icon
 
 
-def save_png(path: str) -> bool:
+def save_png(path: str, size: int = 512) -> bool:
     icon = build_icon()
     if icon.isNull():
         return False
-    return icon.pixmap(QSize(256, 256)).save(path)
+    return icon.pixmap(QSize(size, size)).save(path)
 
 
 if __name__ == "__main__":
