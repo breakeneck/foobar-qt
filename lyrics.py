@@ -41,10 +41,14 @@ class Lyrics(QObject):
     )
 
     def initProviders(self):
-        self.genius = lyricsgenius.Genius(
-            self.config.getLyricsGeniusToken(), verbose=False
-        )
-        self.genius._session.headers.update({"User-Agent": self.BROWSER_UA})
+        # lyricsgenius raises TypeError('Invalid token') on an empty token;
+        # if it propagates out of a Qt slot PyQt6 aborts the process, so the
+        # provider is simply left unavailable and lookup falls back to others.
+        token = self.config.getLyricsGeniusToken()
+        self.genius = None
+        if token:
+            self.genius = lyricsgenius.Genius(token, verbose=False)
+            self.genius._session.headers.update({"User-Agent": self.BROWSER_UA})
 
     def run(self):
         # Nothing may escape this slot: when a Python exception propagates
@@ -90,6 +94,8 @@ class Lyrics(QObject):
 
     def getLyrics(self, provider, artist, title):
         if provider == self.PROVIDER_GENIUS:
+            if self.genius is None:
+                raise Exception("no genius token configured")
             song = self.genius.search_song(title, artist)
             return song.lyrics if song else None
         if provider == self.PROVIDER_LYRICSWIKIA:

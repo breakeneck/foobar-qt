@@ -296,7 +296,12 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         thread = QThread(self)
         lyrics = Lyrics()
-        lyrics.setConfig(self.config, self.player)
+        # same slot-abort hazard as Lyrics.run: a config/provider error here
+        # must not crash playback
+        try:
+            lyrics.setConfig(self.config, self.player)
+        except Exception as e:
+            print("Lyrics setup failed: %s" % e)
         lyrics.moveToThread(thread)
 
         worker = (thread, lyrics)
