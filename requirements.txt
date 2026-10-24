@@ -7,5 +7,6 @@ PyLyrics~=1.1.0
 lyricsgenius==3.0.1
 apsw
 python-vlc
+pyobjc-framework-MediaPlayer>=11; sys_platform == "darwin"
 setuptools~=49.2.1
 pylast==5.2.0

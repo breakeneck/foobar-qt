@@ -10,6 +10,7 @@ import config
 import customui
 import design
 import hotkeys
+import nowplaying
 import remote
 from dialogs import AddLibraryDirDialog, SettingsDialog
 from virtualfs import get_root_label, is_sftp_path
@@ -49,6 +50,14 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
             self.statusbar.showMessage(
                 "Global shortcut failed: %s" % report[0][2], 5000
             )
+
+        # macOS Now Playing: Control Center / lock screen + global media keys
+        self.nowPlaying = nowplaying.NowPlaying(self)
+        self.nowPlaying.cmdPlay.connect(self.remotePlay)
+        self.nowPlaying.cmdPause.connect(self.remotePause)
+        self.nowPlaying.cmdToggle.connect(self.playBtnClick)
+        self.nowPlaying.cmdNext.connect(self.next)
+        self.nowPlaying.cmdPrev.connect(self.prev)
 
         self.tableModel.refreshPlaylist(self.searchEdit.text())
         self.treeModel.loadTreeData(self.treeView)
@@ -216,7 +225,19 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
     def stop(self):
         self.player.stop()
+        self.nowPlaying.clear()
         self.updatePlayStatus()
+
+    def remotePlay(self):
+        # media key "play": resume if paused, start something if stopped
+        if self.player.now_playing and self.player.paused:
+            self.playBtnClick()
+        elif not self.player.now_playing:
+            self.playBtnClick()
+
+    def remotePause(self):
+        if self.player.now_playing and not self.player.paused:
+            self.playBtnClick()
 
     def updatePlayStatus(self):
         icon = (
@@ -252,6 +273,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
 
         self.player.playPause()
         self.updatePlayStatus()
+        self.nowPlaying.set_paused(self.player.paused)
 
     def play(self, index: QtCore.QModelIndex = None):
         if not index:
@@ -266,6 +288,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         if track:
             self.selectCurrentTrack()
             self.updatePlayStatus()
+            self.nowPlaying.register(track)
             self.findLyrics()
             try:
                 self.lastfm.updateNowPlaying(
@@ -496,6 +519,11 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
     def updatePos(self):
         media_pos = int(self.player.mediaplayer.get_position() * 1000)
         self.posSlider.setValue(media_pos)
+        if self.player.now_playing:
+            duration = self.player.now_playing.duration or 0
+            self.nowPlaying.update_position(
+                self.player.mediaplayer.get_position() * duration
+            )
         if not self.player.mediaplayer.is_playing():
             try:
                 self.lastfm.scrobble(
@@ -572,6 +600,7 @@ class FooQt(QtWidgets.QMainWindow, design.Ui_MainWindow):
         self._lyricsWorkers.clear()
 
         self.hotkeys.shutdown()
+        self.nowPlaying.shutdown()
         get_sftp_manager().close_all()
         self.config.save()
         event.accept()
